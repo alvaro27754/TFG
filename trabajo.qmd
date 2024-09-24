@@ -1,0 +1,17 @@
+---
+title: "main"
+format: pdf
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+listings = read_csv("datasets/listings.csv")
+listings_summary = read_csv("datasets/listings_summary.csv")
+reviews = read_csv("datasets/reviews.csv")
+reviews_summary = read_csv("datasets/reviews_summary.csv")
+neighbourhoods = read_csv("datasets/neighbourhoods.csv")
+```
