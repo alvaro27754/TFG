@@ -10,6 +10,7 @@ library(ggplot2)
 library(sf)
 library(readr)
 library(ggspatial)
+library(sphet)
 ```
 
 ```{r}
@@ -20,7 +21,6 @@ municipios =read_sf("datasets/mapa_espana/recintos_municipales_inspire_peninbal_
 municip_mallorca = municipios %>% filter(CODNUT3=="ES532")
 ```
 
-
 ```{r}
 pisos$price <- gsub("[\\$, ]", "", pisos$price)  # Quitar el símbolo $
 pisos$price <- as.numeric(pisos$price)
@@ -29,7 +29,6 @@ pisos = pisos %>%
   dplyr::filter(price<50000) %>% 
   dplyr::mutate(logprice = log(price), .after = price) 
 ```
-
 
 ```{r}
 plot_mallorca <- ggplot()+geom_sf(data=municip_mallorca, 
@@ -56,5 +55,82 @@ plot_mallorca <- ggplot()+geom_sf(data=municip_mallorca,
 plot_mallorca 
 ```
 
+## Agrupar por municipio
+
+```{r}
+
+pisos1 <- st_as_sf(pisos, coords = c("latitude", "longitude"), crs = st_crs(municip_mallorca), agr = "constant")
+
+pisos2 <- st_join(pisos1,municip_mallorca) %>% 
+   left_join(pisos %>% dplyr::select(id, latitude, longitude), by="id")
 
 
+```
+
+### Modelo SARAR
+
+```{r}
+
+DatosF <- Datos %>% dplyr::filter(!is.na(price)) %>% 
+  dplyr::filter(price<5000, price>10, 
+                room_type%in%c("Entire home/apt", "Private room") ) %>% 
+  dplyr::select(price, latitude, longitude, room_type,
+                minimum_nights, number_of_reviews, calculated_host_listings_count,
+                license, availability_365) %>% 
+  dplyr::mutate(license = ifelse(is.na(license),0,1),
+                priceRank = cut(price, 
+                                breaks = round(quantile(price, probs=c(0,0.2,0.4,0.6,0.8,1))),
+                                include.lowest = TRUE) ) %>% 
+  na.exclude() %>% 
+  sample_n(1000)
+
+
+
+table(DatosF$room_type)
+
+a=fastDummies::dummy_cols(DatosF$room_type)
+
+DatosF$Entire=a[,2]
+
+
+OLS=lm(log(price)~minimum_nights+number_of_reviews+
+         calculated_host_listings_count+license+availability_365+Entire,
+       data=DatosF)
+
+n <- dim(DatosF)[1]
+
+puntos=cbind(DatosF$longitude,DatosF$latitude)
+
+dis <- dist(puntos,upper=TRUE)
+D=as.matrix(dis)
+
+W <- 1 / D^2
+
+
+W[!is.finite(W)] <- NA
+W[is.na(W)] <- 0
+rtot <- rowSums(W, na.rm=TRUE)
+Wdist.mat.tot=W
+Wdist.list.tot=mat2listw(W)
+
+W <- W / rtot # Matriz estandarizada
+rm(dis)
+```
+
+```{r}
+SAR=lagsarlm(log(price)~minimum_nights+number_of_reviews+
+               calculated_host_listings_count+license+availability_365+Entire,
+             data=DatosF,listw = Wdist.list.tot,zero.policy = TRUE)
+
+summary(SAR)
+
+
+SARAR <- spreg(log(price)~minimum_nights+number_of_reviews+
+                 calculated_host_listings_count+license+availability_365+Entire,
+               data=DatosF,listw = Wdist.list.tot, model="sarar", het=TRUE)
+
+summary(SARAR)
+
+
+
+```
