@@ -15,7 +15,7 @@ library(ggspatial)
 ```{r}
 pisos = read_csv("datasets/listings.csv", show_col_types = FALSE)
 #Espana = read_sf("datasets/lineas_limite/SHP_ETRS89/recintos_provinciales_inspire_peninbal_etrs89/recintos_provinciales_inspire_peninbal_etrs89.shp")
-municipios =read_sf("datasets/lineas_limite/SHP_ETRS89/recintos_municipales_inspire_peninbal_etrs89/recintos_municipales_inspire_peninbal_etrs89.shp")
+municipios =read_sf("datasets/mapa_espana/recintos_municipales_inspire_peninbal_etrs89.shp")
 
 municip_mallorca = municipios %>% filter(CODNUT3=="ES532")
 ```
@@ -28,7 +28,6 @@ pisos$price <- as.numeric(pisos$price)
 pisos = pisos %>%
   dplyr::filter(price<50000) %>% 
   dplyr::mutate(logprice = log(price), .after = price) 
-
 ```
 
 
