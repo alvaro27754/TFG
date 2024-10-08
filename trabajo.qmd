@@ -1,17 +1,61 @@
 ---
 title: "main"
-format: pdf
+format: html
 editor: visual
 ---
 
-```{r}
+```{r, message = FALSE, show_col_types = FALSE, warning=FALSE}
 library(tidyverse)
+library(ggplot2)
+library(sf)
+library(readr)
+library(ggspatial)
 ```
 
 ```{r}
-listings = read_csv("datasets/listings.csv")
-listings_summary = read_csv("datasets/listings_summary.csv")
-reviews = read_csv("datasets/reviews.csv")
-reviews_summary = read_csv("datasets/reviews_summary.csv")
-neighbourhoods = read_csv("datasets/neighbourhoods.csv")
+pisos = read_csv("datasets/listings.csv", show_col_types = FALSE)
+#Espana = read_sf("datasets/lineas_limite/SHP_ETRS89/recintos_provinciales_inspire_peninbal_etrs89/recintos_provinciales_inspire_peninbal_etrs89.shp")
+municipios =read_sf("datasets/lineas_limite/SHP_ETRS89/recintos_municipales_inspire_peninbal_etrs89/recintos_municipales_inspire_peninbal_etrs89.shp")
+
+municip_mallorca = municipios %>% filter(CODNUT3=="ES532")
 ```
+
+
+```{r}
+pisos$price <- gsub("[\\$, ]", "", pisos$price)  # Quitar el símbolo $
+pisos$price <- as.numeric(pisos$price)
+
+pisos = pisos %>%
+  dplyr::filter(price<50000) %>% 
+  dplyr::mutate(logprice = log(price), .after = price) 
+
+```
+
+
+```{r}
+plot_mallorca <- ggplot()+geom_sf(data=municip_mallorca, 
+                       colour = "gray60")+
+  geom_point(data=pisos %>% filter(!is.na(price)), mapping = aes(x=longitude, y=latitude,
+                                        colour = logprice))+
+  coord_sf(xlim = c(2.3,3.5), ylim = c(39.2,40)) +
+  scale_color_gradient(name="Precios alquiler", low="green", high="red") +
+  xlab("Longitud")+
+  ylab("Latitud")+
+  ggspatial::annotation_scale(
+    location = "tl",
+    bar_cols = c("grey60", "white")
+  ) +
+  ggspatial::annotation_north_arrow(
+    location = "bl", which_north = "true",
+    pad_x = unit(0, "in"), pad_y = unit(0, "in"),
+    style = ggspatial::north_arrow_nautical(
+      fill = c("grey40", "white"),
+      line_col = "grey20"
+    )
+  )
+
+plot_mallorca 
+```
+
+
+
