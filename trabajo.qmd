@@ -59,9 +59,10 @@ plot_mallorca
 
 ```{r}
 
-pisos1 <- st_as_sf(pisos, coords = c("latitude", "longitude"), crs = st_crs(municip_mallorca), agr = "constant")
+pisos1 <- st_as_sf(pisos, coords = c("longitude","latitude"), crs = st_crs(municip_mallorca), agr = "constant")
 
-pisos2 <- st_join(pisos1,municip_mallorca) %>% 
+
+pisos2 <- st_join(pisos1,municip_mallorca, join = st_within) %>% 
    left_join(pisos %>% dplyr::select(id, latitude, longitude), by="id")
 
 
