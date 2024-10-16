@@ -1,42 +1,87 @@
 ---
 title: "main"
 format: html
-editor: visual
+editor: source
 ---
 
-```{r, message = FALSE, show_col_types = FALSE, warning=FALSE}
+```{r, eval=FALSE, echo=FALSE}
 library(tidyverse)
 library(ggplot2)
 library(sf)
 library(readr)
 library(ggspatial)
 library(sphet)
+library(spatialreg)
+library(spdep)
 ```
+
+## Cargamos datasets
 
 ```{r}
 pisos = read_csv("datasets/listings.csv", show_col_types = FALSE)
-#Espana = read_sf("datasets/lineas_limite/SHP_ETRS89/recintos_provinciales_inspire_peninbal_etrs89/recintos_provinciales_inspire_peninbal_etrs89.shp")
-municipios =read_sf("datasets/mapa_espana/recintos_municipales_inspire_peninbal_etrs89.shp")
+municipios = read_sf("datasets/mapa_espana/recintos_municipales_inspire_peninbal_etrs89.shp")
+```
 
-municip_mallorca = municipios %>% filter(CODNUT3=="ES532")
+## Juntamos datasets
+
+```{r}
+#Agrupamos por municipios
+
+municipios <- municipios %>% filter(CODNUT3=="ES532")
+
+
+pisos1 <- st_as_sf(pisos, coords = c("longitude","latitude"), crs = st_crs(municipios), agr = "constant")
+
+pisos <- st_join(pisos1,municipios, join = st_within) %>% 
+   left_join(pisos %>% dplyr::select(id, latitude, longitude), by="id")
+
+rm(pisos1)
+```
+
+## Limpiamos dataset
+
+```{r}
+pisos <- pisos %>% 
+  dplyr::select(id,, room_type, accommodates, price, minimum_nights, 
+                availability_365, number_of_reviews, review_scores_rating, 
+                calculated_host_listings_count, license, longitude, latitude, NAMEUNIT) %>% 
+  dplyr::mutate(license = if_else(is.na(license), 0, 1))
+
+municipios <- municipios %>% dplyr::select(NAMEUNIT)
+
+
+pisos$price <- gsub("[\\$, ]", "", pisos$price) %>% as.numeric()  # Quitar el símbolo $
+
+
+#Filtramos por un precio adecuado para evitar valores atípicos
+
+pisos = pisos %>% dplyr::filter(price<5000 & !is.na(NAMEUNIT)) 
+  # %>% dplyr::mutate(logprice = log(price), .after = price) 
 ```
 
 ```{r}
-pisos$price <- gsub("[\\$, ]", "", pisos$price)  # Quitar el símbolo $
-pisos$price <- as.numeric(pisos$price)
+mediana_precios <- aggregate(price ~ NAMEUNIT, data = pisos, FUN = median)
+municipios <- merge(municipios, mediana_precios, by.x = "NAMEUNIT", by.y = "NAMEUNIT", all.x = TRUE)
 
-pisos = pisos %>%
-  dplyr::filter(price<50000) %>% 
-  dplyr::mutate(logprice = log(price), .after = price) 
+municipios <- municipios %>%  rename(mediana_precio = price)
+rm(mediana_precios)
 ```
 
 ```{r}
-plot_mallorca <- ggplot()+geom_sf(data=municip_mallorca, 
-                       colour = "gray60")+
-  geom_point(data=pisos %>% filter(!is.na(price)), mapping = aes(x=longitude, y=latitude,
-                                        colour = logprice))+
+ggplot(pisos, aes(x = log(price))) +
+  geom_density(fill = "blue", alpha = 0.5) +
+  labs(title = "Densidad del logaritmo del precio",
+       x = "Logaritmo del precio",
+       y = "Densidad") +
+  theme_minimal()
+
+```
+
+```{r, eval = FALSE}
+plot_mallorca <- ggplot()+
+  geom_sf(data=municipios, colour = "gray58", aes(fill = log(mediana_precio)))+
   coord_sf(xlim = c(2.3,3.5), ylim = c(39.2,40)) +
-  scale_color_gradient(name="Precios alquiler", low="green", high="red") +
+  scale_fill_gradient(name="Precios alquiler", low="green", high="red") +
   xlab("Longitud")+
   ylab("Latitud")+
   ggspatial::annotation_scale(
@@ -55,18 +100,62 @@ plot_mallorca <- ggplot()+geom_sf(data=municip_mallorca,
 plot_mallorca 
 ```
 
-## Agrupar por municipio
+```{r}
+set.seed(777)
+muestra = sample_n(pisos,500)
+```
+
+
+
 
 ```{r}
+a=fastDummies::dummy_cols(muestra$room_type)
 
-pisos1 <- st_as_sf(pisos, coords = c("longitude","latitude"), crs = st_crs(municip_mallorca), agr = "constant")
-
-
-pisos2 <- st_join(pisos1,municip_mallorca, join = st_within) %>% 
-   left_join(pisos %>% dplyr::select(id, latitude, longitude), by="id")
+muestra$Entire=a[,2]
 
 
+OLS=lm(log(price)~minimum_nights+number_of_reviews+
+         calculated_host_listings_count+license+availability_365+Entire,
+       data=muestra)
+
+n <- dim(muestra)[1]
+
+puntos=cbind(muestra$longitude,muestra$latitude)
+
+dis <- dist(puntos,upper=TRUE)
+D=as.matrix(dis)
+
+W <- 1 / D^2
+
+
+W[!is.finite(W)] <- NA
+W[is.na(W)] <- 0
+rtot <- rowSums(W, na.rm=TRUE)
+W <- W / rtot # Matriz estandarizada
+Wdist.mat.tot=W
+Wdist.list.tot=mat2listw(W)
+
+
+rm(dis)
 ```
+
+
+```{r}
+SAR=lagsarlm(log(price)~minimum_nights+number_of_reviews+
+               license+availability_365+Entire,
+             data=muestra,listw = Wdist.list.tot,zero.policy = TRUE)
+
+summary(SAR)
+```
+
+```{r}
+SARAR <- spreg(log(price)~minimum_nights+number_of_reviews+
+                 calculated_host_listings_count+license+availability_365+Entire,
+               data=muestra,listw = Wdist.list.tot, model="sarar", het=TRUE)
+
+summary(SARAR)
+```
+
 
 ### Modelo SARAR
 
@@ -131,7 +220,5 @@ SARAR <- spreg(log(price)~minimum_nights+number_of_reviews+
                data=DatosF,listw = Wdist.list.tot, model="sarar", het=TRUE)
 
 summary(SARAR)
-
-
 
 ```
