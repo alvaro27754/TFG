@@ -2,6 +2,8 @@
 title: "main"
 format: html
 editor: source
+Rendering:
+   embed-resources: true
 ---
 
 ```{r, eval=FALSE, echo=FALSE}
@@ -155,7 +157,25 @@ SARAR <- spreg(log(price)~minimum_nights+number_of_reviews+
 
 summary(SARAR)
 ```
+```{r}
+SARAR_2=sacsarlm(log(price)~minimum_nights+number_of_reviews+
+               license+availability_365+Entire,
+             data=muestra,listw = Wdist.list.tot,zero.policy = TRUE)
 
+summary(SARAR_2)
+```
+
+```{r}
+SD = diag(diag(SARAR$var[8:9, 8:9])^(-1/2))
+SD%*%SARAR$var[8:9, 8:9]%*%SD
+```
+```{r}
+SEM=errorsarlm(log(price)~minimum_nights+number_of_reviews+
+               license+availability_365+Entire,
+             data=muestra,listw = Wdist.list.tot,zero.policy = TRUE)
+
+summary(SEM)
+```
 
 ### Modelo SARAR
 
