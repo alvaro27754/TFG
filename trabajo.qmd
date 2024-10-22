@@ -6,7 +6,7 @@ Rendering:
    embed-resources: true
 ---
 
-```{r, eval=FALSE, echo=FALSE}
+```{r, eval=FALSE, echo=FALSE, warning=FALSE}
 library(tidyverse)
 library(ggplot2)
 library(sf)
@@ -44,10 +44,18 @@ rm(pisos1)
 
 ```{r}
 pisos <- pisos %>% 
-  dplyr::select(id,, room_type, accommodates, price, minimum_nights, 
+  dplyr::mutate(license = if_else(is.na(license), 0, 1)) %>% 
+  dplyr::mutate(review_scores_rating = case_when(
+    review_scores_rating < 4 ~ "Menos de 4 estrellas",
+    review_scores_rating >= 4 & review_scores_rating < 4.5 ~ "Entre 4 y 4.5 estrellas",
+    review_scores_rating >= 4.5 & review_scores_rating < 4.75 ~ "Entre 4.5 y 4.75 estrellas",
+    review_scores_rating >= 4.75 & review_scores_rating < 5 ~"Entre 4.75 y 5 estrellas",
+    review_scores_rating == 5 ~ "5 estrellas"
+  )) %>% 
+  dplyr::select(id, room_type, accommodates, price, minimum_nights, 
                 availability_365, number_of_reviews, review_scores_rating, 
-                calculated_host_listings_count, license, longitude, latitude, NAMEUNIT) %>% 
-  dplyr::mutate(license = if_else(is.na(license), 0, 1))
+                calculated_host_listings_count, license, longitude, latitude, NAMEUNIT)
+  
 
 municipios <- municipios %>% dplyr::select(NAMEUNIT)
 
@@ -57,7 +65,7 @@ pisos$price <- gsub("[\\$, ]", "", pisos$price) %>% as.numeric()  # Quitar el s�
 
 #Filtramos por un precio adecuado para evitar valores atípicos
 
-pisos = pisos %>% dplyr::filter(price<5000 & !is.na(NAMEUNIT)) 
+pisos = pisos %>% dplyr::filter(price<5000, !is.na(NAMEUNIT), room_type %in% c("Entire home/apt", "Private room")) 
   # %>% dplyr::mutate(logprice = log(price), .after = price) 
 ```
 
@@ -68,6 +76,132 @@ municipios <- merge(municipios, mediana_precios, by.x = "NAMEUNIT", by.y = "NAME
 municipios <- municipios %>%  rename(mediana_precio = price)
 rm(mediana_precios)
 ```
+
+### Análisis
+
+#### Room_type
+
+Variable cualitativa
+
+```{r}
+# Calcular frecuencias absolutas
+frecuencia_absoluta <- table(pisos$room_type)
+
+# Calcular frecuencias relativas
+frecuencia_relativa <- prop.table(frecuencia_absoluta) * 100
+
+# Crear un data.frame que combine ambas frecuencias
+tabla_room_type <- data.frame(
+  room_type = names(frecuencia_absoluta),
+  frecuencia_absoluta = as.vector(frecuencia_absoluta),
+  frecuencia_relativa = round(as.vector(frecuencia_relativa), 2)
+)
+
+# Mostrar la tabla
+print(tabla_room_type)
+
+ggplot(tabla_room_type, aes(x = room_type, y = frecuencia_absoluta)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  labs(title = "Alquiler de casas vs habitaciones",x="", y = "Frecuencia") +
+  theme_minimal()
+```
+
+#### Alojamientos
+
+
+Variable cuantitativa discreta. 
+```{r}
+summary(pisos$accommodates)
+
+# Histograma
+pisos %>%
+  ggplot(aes(x = accommodates)) +
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black") +
+  labs(title = "Histograma del número de alojamientos", x = "Número de alojamientos", y = "Frecuencia")
+```
+
+#### Precio
+
+Variable cuantitativa continua
+```{r}
+# Calcular medidas de tendencia central y dispersión
+analisis_precio <- pisos %>%
+  summarise(
+    media = mean(price),
+    mediana = median(price),
+    varianza = var(price),
+    desviacion_estandar = sd(price),
+    rango = max(price) - min(price),
+    minimo = min(price),
+    maximo = max(price),
+    q1 = quantile(price, 0.25),  # Primer cuartil
+    q3 = quantile(price, 0.75),  # Tercer cuartil
+    IQR = q3 - q1,
+    asimetria = mean((price - mean(price))^3) / sd(price)^3,
+    curtosis = mean((price - mean(price))^4) / sd(price)^4 - 3 
+  ) %>% st_drop_geometry()
+
+# Mostrar el resumen
+print(analisis_precio)
+
+
+pisos %>% ggplot(aes(x=price))+
+  geom_density(fill = "skyblue", color = "black", alpha = 0.6) + 
+  labs(title = "Gráfico de densidad del precio", x = "Precio", y = "Densidad") +
+  theme_minimal()
+```
+
+
+#### Estancia mínima
+
+```{r}
+resumen_noches = pisos %>% 
+  summarise(
+    media = mean(minimum_nights),
+    mediana = median(minimum_nights),
+    varianza = var(minimum_nights),
+    desviacion_estandar = sd(minimum_nights),
+    rango = max(minimum_nights) - min(minimum_nights),
+    minimo = min(minimum_nights),
+    maximo = max(minimum_nights),
+    q1 = quantile(minimum_nights, 0.25),  # Primer cuartil
+    q3 = quantile(minimum_nights, 0.75),  # Tercer cuartil
+    IQR = q3 - q1) %>%  st_drop_geometry()
+
+print(resumen_noches)
+
+resultado <- pisos %>%
+  group_by(
+    categoria = case_when(
+      minimum_nights == 1 ~ "1 día",
+      minimum_nights == 2 ~ "2 días",
+      minimum_nights == 3 ~ "3 días",
+      minimum_nights == 4 ~ "4 días",
+      minimum_nights == 5 ~ "5 días",
+      minimum_nights == 6 ~ "6 días",
+      minimum_nights == 7 ~ "7 días",
+      minimum_nights > 7 ~ "Más de una semana",
+      TRUE ~ "Otros"  # Para manejar valores no esperados
+    )
+  ) %>%
+  summarise(
+    conteo = n(),  # Contar el número de registros en cada categoría
+    .groups = 'drop'  # Opcional, para evitar advertencias sobre agrupación
+  ) %>% st_drop_geometry()
+
+
+resultado %>% ggplot(aes(x = categoria, y = conteo)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +        # 'identity' para usar los valores en 'frecuencias'
+  geom_text(aes(label = conteo), vjust = -0.3) +    # Añadir etiquetas sobre las barras
+  labs(title = "Distribución del Número Mínimo de Noches \n",
+       x = "Número de Noches",
+       y = "Frecuencia") +
+  theme_minimal() +                                      # Tema limpio y minimalista
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+```
+
+
+### Gráficos
 
 ```{r}
 ggplot(pisos, aes(x = log(price))) +
@@ -81,9 +215,9 @@ ggplot(pisos, aes(x = log(price))) +
 
 ```{r, eval = FALSE}
 plot_mallorca <- ggplot()+
-  geom_sf(data=municipios, colour = "gray58", aes(fill = log(mediana_precio)))+
+  geom_sf(data=municipios, colour = "gray50", aes(fill = log(mediana_precio)))+
   coord_sf(xlim = c(2.3,3.5), ylim = c(39.2,40)) +
-  scale_fill_gradient(name="Precios alquiler", low="green", high="red") +
+  scale_fill_gradient(name="Precios alquiler", low="yellow", high="red") +
   xlab("Longitud")+
   ylab("Latitud")+
   ggspatial::annotation_scale(
@@ -102,13 +236,12 @@ plot_mallorca <- ggplot()+
 plot_mallorca 
 ```
 
+### Modelo bebé
+
 ```{r}
 set.seed(777)
 muestra = sample_n(pisos,500)
 ```
-
-
-
 
 ```{r}
 a=fastDummies::dummy_cols(muestra$room_type)
@@ -141,6 +274,7 @@ Wdist.list.tot=mat2listw(W)
 rm(dis)
 ```
 
+### SAR
 
 ```{r}
 SAR=lagsarlm(log(price)~minimum_nights+number_of_reviews+
@@ -150,6 +284,8 @@ SAR=lagsarlm(log(price)~minimum_nights+number_of_reviews+
 summary(SAR)
 ```
 
+### SARAR
+
 ```{r}
 SARAR <- spreg(log(price)~minimum_nights+number_of_reviews+
                  calculated_host_listings_count+license+availability_365+Entire,
@@ -157,6 +293,7 @@ SARAR <- spreg(log(price)~minimum_nights+number_of_reviews+
 
 summary(SARAR)
 ```
+
 ```{r}
 SARAR_2=sacsarlm(log(price)~minimum_nights+number_of_reviews+
                license+availability_365+Entire,
@@ -165,10 +302,13 @@ SARAR_2=sacsarlm(log(price)~minimum_nights+number_of_reviews+
 summary(SARAR_2)
 ```
 
+### SEM
+
 ```{r}
 SD = diag(diag(SARAR$var[8:9, 8:9])^(-1/2))
 SD%*%SARAR$var[8:9, 8:9]%*%SD
 ```
+
 ```{r}
 SEM=errorsarlm(log(price)~minimum_nights+number_of_reviews+
                license+availability_365+Entire,
