@@ -260,13 +260,20 @@ puntos=cbind(muestra$longitude,muestra$latitude)
 dis <- dist(puntos,upper=TRUE)
 D=as.matrix(dis)
 
+#### Acá hay un problema por valores cercanos
 
 W <- 1 / D^2
+
+#### Vamos por 
+
+W <- ifelse(D<0.05, 1, 0)
 W[!is.finite(W)] <- NA
 W[is.na(W)] <- 0
 rtot <- rowSums(W, na.rm=TRUE)
 W <- W / rtot # Matriz estandarizada
-W <- Matrix(round(W, 3), sparse = TRUE)
+#W <- Matrix(round(W, 3), sparse = TRUE)
+
+W <- Matrix(W, sparse = TRUE)
 
 
 
@@ -274,9 +281,32 @@ rm(dis)
 rm(D)
 gc()
 gc()
-Wdist.mat.tot=W
-Wdist.list.tot=mat2listw(W)
+#Wdist.mat.tot=W
+#Wdist.list.tot=mat2listw(W)
 
+```
+
+
+
+### SARAR
+
+```{r}
+SARAR <- spreg(log(price)~minimum_nights+number_of_reviews+
+                 calculated_host_listings_count+license+availability_365+Entire,
+               data=muestra,listw = W, model="sarar", het=TRUE)
+
+#### El sarar solo llevaba la matriz W con la distancia a la menos 1
+#### El sara W1 lleva la matriz con W que vale 1 si estas a menos de 0.05 de distancia
+save(SARAR, file="SARARW1.RData")
+summary(SARAR)
+```
+
+```{r}
+SARAR_2=sacsarlm(log(price)~minimum_nights+number_of_reviews+
+               license+availability_365+Entire,
+             data=muestra,listw = Wdist.list.tot,zero.policy = TRUE)
+
+summary(SARAR_2)
 ```
 
 ### SAR
@@ -289,24 +319,7 @@ SAR=lagsarlm(log(price)~minimum_nights+number_of_reviews+
 summary(SAR)
 ```
 
-### SARAR
 
-```{r}
-SARAR <- spreg(log(price)~minimum_nights+number_of_reviews+
-                 calculated_host_listings_count+license+availability_365+Entire,
-               data=muestra,listw = W, model="sarar", het=TRUE)
-
-save(SARAR, file="SARAR.RData")
-summary(SARAR)
-```
-
-```{r}
-SARAR_2=sacsarlm(log(price)~minimum_nights+number_of_reviews+
-               license+availability_365+Entire,
-             data=muestra,listw = Wdist.list.tot,zero.policy = TRUE)
-
-summary(SARAR_2)
-```
 
 ### SEM
 
