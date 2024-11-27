@@ -287,6 +287,75 @@ gc()
 ```
 
 
+## Validación cruzada
+
+```{r, eval=FALSE, echo=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(sf)
+library(readr)
+library(ggspatial)
+library(sphet)
+library(spatialreg)
+library(spdep)
+
+
+set.seed(0)
+prueba = sample_n(pisos,500)
+a=fastDummies::dummy_cols(prueba$room_type)
+
+prueba$Entire=a[,2]
+
+OLS=lm(log(price)~minimum_nights+number_of_reviews+license+availability_365+Entire,
+       data=prueba)
+
+n <- dim(prueba)[1]
+puntos=cbind(prueba$longitude,prueba$latitude)
+
+dis <- dist(puntos,upper=TRUE)
+minimo = Inf
+valor_k = 0
+
+num_grande = 6
+
+for(i in 1:num_grande/2){
+  
+  k = i/num_grande
+  
+  D=as.matrix(dis)
+  D=ifelse(D<=k,1,0)
+  W <- 1 / D^2
+  W[!is.finite(W)] <- NA
+  W[is.na(W)] <- 0
+  rtot <- rowSums(W, na.rm=TRUE)
+  W <- W / rtot # Matriz estandarizada
+
+  #rm(dis)
+  #rm(D)
+  gc()
+  Wdist.mat.tot=W
+  Wdist.list.tot=mat2listw(W)
+  
+  SARAR_prueba = sacsarlm(log(price)~minimum_nights+number_of_reviews+
+               license+availability_365+Entire,
+             data=prueba,listw = Wdist.list.tot,zero.policy = TRUE)
+  
+  Sys.sleep(5)
+  
+  if(AIC(SARAR_prueba) < minimo){
+    minimo = AIC(SARAR_prueba)
+    valor_k = k
+    }
+  
+}
+
+valor_k
+```
+
+
+
+
+
 
 ### SARAR
 
