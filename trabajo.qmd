@@ -318,9 +318,10 @@ valor_k = 0
 
 num_grande = 6
 
-for(i in 1:num_grande/2){
+grillaK = c(0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64)
+for(i in grillaK){
   
-  k = i/num_grande
+  k = i
   
   D=as.matrix(dis)
   D=ifelse(D<=k,1,0)
@@ -340,7 +341,8 @@ for(i in 1:num_grande/2){
                license+availability_365+Entire,
              data=prueba,listw = Wdist.list.tot,zero.policy = TRUE)
   
-  Sys.sleep(5)
+  #Sys.sleep(5)
+  print(cbind(k, AIC(SARAR_prueba)))
   
   if(AIC(SARAR_prueba) < minimo){
     minimo = AIC(SARAR_prueba)
