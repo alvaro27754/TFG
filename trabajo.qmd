@@ -300,58 +300,105 @@ library(spatialreg)
 library(spdep)
 
 
-set.seed(0)
-prueba = sample_n(pisos,500)
-a=fastDummies::dummy_cols(prueba$room_type)
+pisos = read_csv("datasets/listings.csv", show_col_types = FALSE)
+municipios = read_sf("datasets/mapa_espana/recintos_municipales_inspire_peninbal_etrs89.shp")
 
-prueba$Entire=a[,2]
 
-OLS=lm(log(price)~minimum_nights+number_of_reviews+license+availability_365+Entire,
-       data=prueba)
+municipios <- municipios %>% filter(CODNUT3=="ES532")
 
-n <- dim(prueba)[1]
-puntos=cbind(prueba$longitude,prueba$latitude)
 
-dis <- dist(puntos,upper=TRUE)
-minimo = Inf
-valor_k = 0
+pisos1 <- st_as_sf(pisos, coords = c("longitude","latitude"), crs = st_crs(municipios), agr = "constant")
 
-num_grande = 6
+pisos <- st_join(pisos1,municipios, join = st_within) %>% 
+   left_join(pisos %>% dplyr::select(id, latitude, longitude), by="id")
 
-grillaK = c(0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64)
-for(i in grillaK){
+rm(pisos1)
+
+pisos <- pisos %>% 
+  dplyr::mutate(license = if_else(is.na(license), 0, 1)) %>% 
+  dplyr::mutate(review_scores_rating = case_when(
+    review_scores_rating < 4 ~ "Menos de 4 estrellas",
+    review_scores_rating >= 4 & review_scores_rating < 4.5 ~ "Entre 4 y 4.5 estrellas",
+    review_scores_rating >= 4.5 & review_scores_rating < 4.75 ~ "Entre 4.5 y 4.75 estrellas",
+    review_scores_rating >= 4.75 & review_scores_rating < 5 ~"Entre 4.75 y 5 estrellas",
+    review_scores_rating == 5 ~ "5 estrellas"
+  )) %>% 
+  dplyr::select(id, room_type, accommodates, price, minimum_nights, 
+                availability_365, number_of_reviews, review_scores_rating, 
+                calculated_host_listings_count, license, longitude, latitude, NAMEUNIT)
   
-  k = i
-  
-  D=as.matrix(dis)
-  D=ifelse(D<=k,1,0)
-  W <- 1 / D^2
-  W[!is.finite(W)] <- NA
-  W[is.na(W)] <- 0
-  rtot <- rowSums(W, na.rm=TRUE)
-  W <- W / rtot # Matriz estandarizada
 
-  #rm(dis)
-  #rm(D)
-  gc()
-  Wdist.mat.tot=W
-  Wdist.list.tot=mat2listw(W)
+municipios <- municipios %>% dplyr::select(NAMEUNIT)
+
+
+pisos$price <- gsub("[\\$, ]", "", pisos$price) %>% as.numeric()  # Quitar el símbolo $
+
+
+#Filtramos por un precio adecuado para evitar valores atípicos
+
+pisos = pisos %>% dplyr::filter(price<5000, !is.na(NAMEUNIT), room_type %in% c("Entire home/apt", "Private room")) 
+
+n_filas = 50
+n_columnas = 50
+
+matriz_AIC = matrix(nrow = n_filas,ncol = n_columnas)
+
+for(repeticion in 1:n_filas){
   
-  SARAR_prueba = sacsarlm(log(price)~minimum_nights+number_of_reviews+
-               license+availability_365+Entire,
-             data=prueba,listw = Wdist.list.tot,zero.policy = TRUE)
+  prueba = sample_n(pisos,500)
+  a=fastDummies::dummy_cols(prueba$room_type)
   
-  #Sys.sleep(5)
-  print(cbind(k, AIC(SARAR_prueba)))
+  prueba$Entire=a[,2]
   
-  if(AIC(SARAR_prueba) < minimo){
-    minimo = AIC(SARAR_prueba)
-    valor_k = k
-    }
+  n <- dim(prueba)[1]
+  puntos=cbind(prueba$longitude,prueba$latitude)
   
+  dis <- dist(puntos,upper=TRUE)
+  minimo = Inf
+  
+  for(i in 1:n_columnas){
+    
+    k = i/100
+    
+    D=as.matrix(dis)
+    D=ifelse(D<=k,1,0)
+    W <- 1 / D^2
+    W[!is.finite(W)] <- NA
+    W[is.na(W)] <- 0
+    rtot <- rowSums(W, na.rm=TRUE)
+    W <- W / rtot # Matriz estandarizada
+  
+    print(c(repeticion,k))
+    
+    rm(D)
+    gc()
+    Wdist.mat.tot=W
+    Wdist.list.tot=mat2listw(W)
+    
+    SARAR_prueba = sacsarlm(log(price)~minimum_nights+number_of_reviews+
+                 license+availability_365+Entire,
+               data=prueba,listw = Wdist.list.tot,zero.policy = TRUE)
+    
+    matriz_AIC[repeticion,i] = AIC(SARAR_prueba)
+    
+  }
+  print("He llegado!!!")
 }
 
-valor_k
+minimos_filas <- apply(matriz_AIC, 1, min)
+print(minimos_filas)
+print(min(minimos_filas))
+
+#Matriz con 10 repeticiones, con muestras de 200 pisos
+#write.csv(matriz_AIC, "matriz_AIC.csv", row.names = FALSE, col.names = FALSE)
+
+#Matriz con 50 repeticiones, con muestras de 500 pisos
+write.csv(matriz_AIC, "matriz_AIC2.csv", row.names = FALSE, col.names = FALSE)
+matriz_AIC2 = read_csv("matriz_AIC2.csv")
+
+for(i in 1:50){
+  plot(1:n_columnas/100, matriz_AIC2[i,],type = "o", col = "red", pch = 16, xlab = "X", ylab = "Y", main = "Gráfico con puntos y líneas")
+}
 ```
 
 
