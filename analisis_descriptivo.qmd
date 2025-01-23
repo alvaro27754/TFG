@@ -1,0 +1,366 @@
+---
+title: "Ánalisis descriptivo"
+format: html
+editor: source
+---
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(sf)
+library(readr)
+library(ggspatial)
+library(sphet)
+library(spatialreg)
+library(spdep)
+library(GGally)
+library(knitr)
+library(kableExtra)
+```
+
+# Análisis descriptivo
+
+Para este ejemplo, usaremos dos datasets. El primer dataset que llamaremos 'pisos', contiene los datos de las residencias que se alquilan en Mallorca desde la página web de Airbnb.
+
+```{r, echo=FALSE}
+pisos = read_csv("datasets/listings.csv", show_col_types = FALSE)
+#pisos %>% glimpse()
+```
+
+Por otro lado, el segundo dataset, que llamaremos 'municipios', contiene los datos de los municipios de España, incluyendo las fronteras entre los propios municipios.
+
+```{r,echo =FALSE}
+municipios = read_sf("datasets/mapa_espana/recintos_municipales_inspire_peninbal_etrs89.shp")
+#municipios %>% glimpse()
+```
+Antes de nada, haremos una selección de las variables que usaremos para nuestro trabajo. Del dataset pisos consideramos las siguientes variables:
+
+
+
+- id: Es un identificador para cada residencia
+- room_type: Representa si el alojamiento es una habitación privada o una casa entera
+- accomodates: Nos dice la cantidad máxima de huéspedes permitidos
+- price: Es el precio del alojamiento en euros
+- minimum_nights: Representa el mínimo de noches que has de hospedarte en la vivienda
+- availability_365: Describe la disponibilidad (en días) para alquilar a lo largo de un año
+- number_of_reviews: Proporciona el número de reseñas que le han hecho al alojamiento
+- review_scores_rating: Representa la puntuación media de las reviews
+- license: Nos dice si el dueño tiene licencia (1 si tiene, 0 si no)
+- longitude: La coordenada de la longitud de la vivienda en grados
+- latitude: La coordenada de la latitud de la vivienda en grados
+
+
+Del dataset municipios usaremos dos variables:
+
+- CODNUT3: Representa el código de la Nomenclatura de las Unidades Territoriales Estadísticas. El código 'ES532' es el que representa a la isla de Mallorca
+- NAMEUNIT: Es el nombre del municipio
+
+```{r, echo = FALSE}
+#Agrupamos por municipios
+
+municipios <- municipios %>% filter(CODNUT3=="ES532")
+
+
+pisos1 <- st_as_sf(pisos, coords = c("longitude","latitude"), crs = st_crs(municipios), agr = "constant")
+
+pisos <- st_join(pisos1,municipios, join = st_within) %>% 
+   left_join(pisos %>% dplyr::select(id, latitude, longitude), by="id")
+
+rm(pisos1)
+
+municipios <- municipios %>% dplyr::select(NAMEUNIT)
+
+```
+
+```{r, echo = FALSE}
+
+pisos$price <- gsub("[\\$, ]", "", pisos$price) %>% as.numeric()  # Quitar el símbolo $
+
+pisos <- pisos %>% 
+   dplyr::select(id, room_type, accommodates, price, minimum_nights, 
+                availability_365, number_of_reviews, review_scores_rating, 
+                license, longitude, latitude, NAMEUNIT) %>% 
+   
+   dplyr::filter(price<5000, !is.na(NAMEUNIT), 
+                 room_type %in% c("Entire home/apt", "Private room")) %>% 
+   
+   dplyr::mutate(logprice = log(price), .after = price) %>% 
+   
+   dplyr::mutate(review_scores_rating = case_when(
+   is.na(review_scores_rating) ~ "No tienen reviews",
+   review_scores_rating < 4 ~ "Menos de 4 estrellas",
+    review_scores_rating >= 4 & review_scores_rating < 4.5 ~ "Entre 4 y 4.5 estrellas",
+    review_scores_rating >= 4.5 & review_scores_rating < 4.75 ~ "Entre 4.5 y 4.75 estrellas",
+    review_scores_rating >= 4.75 & review_scores_rating < 5 ~"Entre 4.75 y 5 estrellas",
+    review_scores_rating == 5 ~ "5 estrellas"
+  )) %>% dplyr::mutate(license = if_else(is.na(license), "No", "Si"))
+```
+
+Como el dataset municipios, a efectos prácticos solo tiene una variable, fusionaremos los dos datasets en el dataset pisos, cogiendo las coordenadas de cada alojamiento y viendo en que municipio se encuentra. El resultado final es el siguiente.
+
+```{r, echo = FALSE}
+pisos %>%  glimpse
+```
+
+
+Empezando el análisis, presentamos dos gráficas para resumir el comportamiento de las variables numéricas respecto de las variables cualitativas.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results="hide"}
+#pisos$license = as.factor(pisos$license)
+ggpairs(pisos, columns = c(3,5,6,8,10), ggplot2::aes(colour = license))
+ggpairs(pisos, columns = c(3,5,6,8,2), ggplot2::aes(colour = room_type))
+```
+
+De lo primero que vamos a hablar son de las variables cualitativas que tenemos: room_type y license. Empecemos hablando de esta última. Vemos que aproximadamente un tercio de las residencias no tienen licencia, pero las que si tienen licencia suelen ser más caras. Esto puede ser debido a las garantías que ofrece el dueño de la vivienda para sus clientes.
+
+
+```{r, echo = FALSE}
+#---------------------------license--------------------------------
+
+# Calcular frecuencias absolutas
+frecuencia_absoluta_license <- table(pisos$license)
+
+# Calcular frecuencias relativas
+frecuencia_relativa_license <- prop.table(frecuencia_absoluta_license) * 100
+
+# Crear un data.frame que combine ambas frecuencias
+tabla_license <- data.frame(
+  Tipo_licencia = names(frecuencia_absoluta_license),
+  Frecuencia_Absoluta = as.vector(frecuencia_absoluta_license),
+  Frecuencia_Relativa = round(as.vector(frecuencia_relativa_license), 2)
+)
+
+# Mostrar la tabla con kable
+kable(tabla_license, 
+      caption = "Distribución de la licencia de las viviendas", 
+      col.names = c("Licencia", "Frecuencia absoluta", "Frecuencia relativa (%)"),
+      align = "c") %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE, 
+                position = "center")
+
+#ggplot(tabla_license, aes(x = Tipo_licencia, y = Frecuencia_Absoluta)) +
+#  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+#  labs(title = "Posedor de licencia",x="Licencia", y = "Frecuencia") +
+#  theme_minimal()
+```
+
+Por otra parte, el tipo de alojamiento más común es alquilar la vivienda entera. Menos de un 10% alquila solo una habitación privada. Además, como es lógico, las habitaciones privadas tienen un menor número máximo de huéspedes, como podemos ver en el histograma de la segunda gráfica, abajo a la izquierda. También se ve en el gráfico de la densidad que los alquileres que alquilan la vivienda entera son más caros que los que solo alquilan una habitación privada. Esto vuelve a tener mucho sentido, ya que la vivienda entera suele disponer de más funcionalidades, como por ejemplo una cocina, un salón, una posible piscina, etcétera, por lo que es normal un aumento del precio.
+
+
+```{r, echo = FALSE}
+#---------------------------room_type--------------------------------
+
+# Calcular frecuencias absolutas
+frecuencia_absoluta_room_type <- table(pisos$room_type)
+
+# Calcular frecuencias relativas
+frecuencia_relativa_room_type <- prop.table(frecuencia_absoluta_room_type) * 100
+
+# Crear un data.frame que combine ambas frecuencias
+tabla_room_type <- data.frame(
+  Tipo_Alojamiento = names(frecuencia_absoluta_room_type),
+  Frecuencia_Absoluta = as.vector(frecuencia_absoluta_room_type),
+  Frecuencia_Relativa = round(as.vector(frecuencia_relativa_room_type), 2)
+)
+
+# Mostrar la tabla con kable
+kable(tabla_room_type, 
+      caption = "Distribución de Tipos de Alojamiento", 
+      col.names = c("Tipo de alojamiento", "Frecuencia absoluta", "Frecuencia relativa (%)"),
+      align = "c") %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE, 
+                position = "center")
+
+#ggplot(tabla_room_type, aes(x = Tipo_Alojamiento, y = Frecuencia_Absoluta)) +
+#  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+#  labs(title = "Alquiler de casas vs habitaciones",x="", y = "Frecuencia") +
+#  theme_minimal()
+```
+
+
+
+Hablando de los precios, vemos que la densidad del logaritmo del precio según el tipo de alojamiento o la licencia, parece seguir una distribución normal. Para verlo más claro veamos la densidad del logaritmo del precio.
+
+
+```{r, echo = FALSE}
+ggplot(pisos, aes(x = log(price))) +
+  geom_density(fill = "skyblue") +
+  labs(title = "Densidad del logaritmo del precio",
+       x = "Logaritmo del precio",
+       y = "Densidad") +
+  theme_minimal()
+```
+
+Resalta a la vista el parecido a la distribución normal, pero ya lo comprobaremos mediante un test de normalidad. Por ahora veremos las medidas de tendencia central del logaritmo del precio.
+
+```{r, echo=FALSE}
+# Obtener el resumen de la variable logprice
+resumen_logprice <- summary(pisos$logprice)
+
+# Convertir el resumen en un data frame con nombres personalizados
+tabla_resumen_logprice <- data.frame(
+  Estadística = c("Mínimo", "1er Cuartil", "Mediana", "Media", "3er Cuartil", "Máximo"),
+  Valor = as.numeric(resumen_logprice)
+)
+
+# Transponer la tabla
+tabla_resumen_logprice_t <- t(tabla_resumen_logprice[,2, drop = FALSE]) # Tomamos solo la columna de valores
+
+# Asignar nombres de columna desde la fila de estadísticas
+colnames(tabla_resumen_logprice_t) <- tabla_resumen_logprice$Estadística
+
+# Mostrar la tabla con kable
+kable(tabla_resumen_logprice_t, 
+      caption = "Resumen estadístico del logaritmo del precio",
+      align = "c") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE,
+                position = "center")
+
+```
+
+
+Pasando a hablar sobre el número de huéspedes, los histogramas de estas gráficas nos vislumbran que algo raro pasa con la variable accomodates. Parece ser que hay picos en los números de huéspedes pares. Vamos a verlo bien con un histograma más grande.
+
+
+
+```{r, echo = FALSE}
+# Histograma
+pisos %>%
+  ggplot(aes(x = accommodates)) +
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black") +
+  labs(title = "Histograma del número de alojamientos", x = "Número de alojamientos", y = "Frecuencia")
+```
+
+Esto puede ser debido a que se piense en temas familiares, como tener un sitio donde alojar a tu pareja o a tu familia. Vemos que lo más común es que se acepten como máximo a 6 huéspedes, seguido de residencias donde se acepten hasta a 4 huéspedes. Aquí pueden vivir por ejemplo una pareja con uno o dos hijos.
+
+
+Nos quedan dos variables de las que hablar: minimum_nights y number_of_reviews. Estas dos variables tienen unos rangos de valores muy dispares, agrupados sobre todo en números pequeños. Esto lo podemos deducir por las densidades de las gráficas, que se ve un pico al principio. Para verlo más claro, proporcionamos estas tablas.
+
+
+```{r, echo=FALSE}
+# Obtener el resumen de la variable logprice
+resumen_minimum_nights <- summary(pisos$minimum_nights)
+
+# Convertir el resumen en un data frame con nombres personalizados
+tabla_resumen_minimum_nights <- data.frame(
+  Estadística = c("Mínimo", "1er Cuartil", "Mediana", "Media", "3er Cuartil", "Máximo"),
+  Valor = as.numeric(resumen_minimum_nights)
+)
+
+# Transponer la tabla
+tabla_resumen_minimum_nights_t <- t(tabla_resumen_minimum_nights[,2, drop = FALSE]) # Tomamos solo la columna de valores
+
+# Asignar nombres de columna desde la fila de estadísticas
+colnames(tabla_resumen_minimum_nights_t) <- tabla_resumen_minimum_nights$Estadística
+
+# Mostrar la tabla con kable
+kable(tabla_resumen_minimum_nights_t, 
+      caption = "Resumen estadístico del número de noches mínimas",
+      align = "c") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE,
+                position = "center")
+
+```
+
+```{r, echo=FALSE}
+# Obtener el resumen de la variable logprice
+resumen_number_of_reviews <- summary(pisos$number_of_reviews)
+
+# Convertir el resumen en un data frame con nombres personalizados
+tabla_resumen_number_of_reviews <- data.frame(
+  Estadística = c("Mínimo", "1er Cuartil", "Mediana", "Media", "3er Cuartil", "Máximo"),
+  Valor = as.numeric(resumen_number_of_reviews)
+)
+
+# Transponer la tabla
+tabla_resumen_number_of_reviews_t <- t(tabla_resumen_number_of_reviews[,2, drop = FALSE]) # Tomamos solo la columna de valores
+
+# Asignar nombres de columna desde la fila de estadísticas
+colnames(tabla_resumen_number_of_reviews_t) <- tabla_resumen_number_of_reviews$Estadística
+
+# Mostrar la tabla con kable
+kable(tabla_resumen_number_of_reviews_t, 
+      caption = "Resumen estadístico del número de reseñas",
+      align = "c") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE,
+                position = "center")
+
+```
+
+Como eran distribuciones asimétricas por la derecha, se podía prever que la media sería mayor a la mediana. Aun así, de esta forma no podemos extraer mucha información, por lo que agruparemos los datos para sacar conclusiones.
+
+
+```{r, echo=FALSE}
+resultado <- pisos %>%
+  group_by(
+    categoria = case_when(
+      minimum_nights == 1 ~ "1 día",
+      minimum_nights == 2 ~ "2 días",
+      minimum_nights == 3 ~ "3 días",
+      minimum_nights == 4 ~ "4 días",
+      minimum_nights == 5 ~ "5 días",
+      minimum_nights == 6 ~ "6 días",
+      minimum_nights == 7 ~ "7 días",
+      minimum_nights > 7 ~ "Más de una semana",
+      TRUE ~ "Otros"  # Para manejar valores no esperados
+    )
+  ) %>%
+  summarise(
+    conteo = n(),  # Contar el número de registros en cada categoría
+    .groups = 'drop'  # Opcional, para evitar advertencias sobre agrupación
+  ) %>% st_drop_geometry()
+
+
+resultado %>% ggplot(aes(x = categoria, y = conteo)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +        # 'identity' para usar los valores en 'frecuencias'
+  geom_text(aes(label = conteo), vjust = -0.3) +    # Añadir etiquetas sobre las barras
+  labs(title = "Distribución del Número Mínimo de Noches \n",
+       x = "Número de Noches",
+       y = "Frecuencia") +
+  theme_minimal() +                                      # Tema limpio y minimalista
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+```
+
+Ahora vemos claramente que lo más normal es que el número mínimo de noches que hay que alquilar la residencia es de 1 día. Esto seguramente sea para ofrecer más flexibilidad al cliente además de no limitar su domicilio a ofertas más restrictivas. Tener que residir mínimo 5 o 7 días se deba a los alojamientos vacacionales, que tienen una clientela más familiar y permite que tengan de un hogar provisional durante la estancia. 
+
+Finalmente quiero destacar la alta correlación lineal entre el logaritmo del precio y el número máximo de huéspedes. Es positiva, en concreto de 0.681, y es muy significativa, por lo que nos puede indicar que la base del modelo sea un modelo de regresión lineal. Además implica algo que ya pensábamos: que cuantos más huéspedes se puedan hospedar, más costará el alquiler. El resto de correlaciones muy significativas son negativas y no son muy grandes. La más grande de estas es la correlación entre el número de huéspedes y el número de reseñas, de -0.188, lo cual es raro ya que en principio si tienes más huéspedes te tendrían que poner más reseñas.
+
+
+# Mapas
+
+```{r}
+mediana_precios <- aggregate(price ~ NAMEUNIT, data = pisos, FUN = median)
+municipios <- merge(municipios, mediana_precios, by.x = "NAMEUNIT", by.y = "NAMEUNIT", all.x = TRUE)
+
+municipios <- municipios %>%  rename(mediana_precio = price)
+rm(mediana_precios)
+```
+
+
+```{r, eval = FALSE}
+plot_mallorca <- ggplot()+
+  geom_sf(data=municipios, colour = "gray50", aes(fill = log(mediana_precio)))+
+  coord_sf(xlim = c(2.3,3.5), ylim = c(39.2,40)) +
+  scale_fill_gradient(name="Precios alquiler", low="yellow", high="red") +
+  xlab("Longitud")+
+  ylab("Latitud")+
+  ggspatial::annotation_scale(
+    location = "tl",
+    bar_cols = c("grey60", "white")
+  ) +
+  ggspatial::annotation_north_arrow(
+    location = "bl", which_north = "true",
+    pad_x = unit(0, "in"), pad_y = unit(0, "in"),
+    style = ggspatial::north_arrow_nautical(
+      fill = c("grey40", "white"),
+      line_col = "grey20"
+    )
+  )
+
+plot_mallorca 
+```
