@@ -50,7 +50,7 @@ pisos <- pisos %>%
                 availability_365, number_of_reviews, review_scores_rating, 
                 license, longitude, latitude, NAMEUNIT) %>% 
    
-   dplyr::filter(price<100, !is.na(NAMEUNIT), 
+   dplyr::filter(price<5000, !is.na(NAMEUNIT), 
                  room_type %in% c("Entire home/apt", "Private room")) %>% 
    
    dplyr::mutate(logprice = log(price), .after = price) %>% 
@@ -134,6 +134,24 @@ summary(SARAR)
 ```{r}
 impactos_SARAR = sphet::impacts(SARAR, listw = Wdist.list.tot)
 impactos_SARAR
+```
+
+```{r}
+W = Matrix(Wdist.mat.tot, sparse=TRUE)
+IpWm1 = solve(diag(n)-SARAR$coefficients[8]*W)
+gc()
+gc()
+```
+```{r}
+### Impactos
+for(k in 2:(length(SARAR$coefficients)-2)){
+   S_k = SARAR$coefficients[k]*IpWm1
+   ID = mean(diag(S_k))
+   IT = mean(colSums(S_k))
+   II = IT-ID
+   print(paste("Para la variable ", rownames(SARAR$coefficients)[k]))
+   print(cbind(SARAR$coefficients[k],ID, II, IT))
+}
 ```
 
 
