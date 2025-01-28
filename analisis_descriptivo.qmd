@@ -16,6 +16,7 @@ library(spdep)
 library(GGally)
 library(knitr)
 library(kableExtra)
+library(viridis)
 ```
 
 # Análisis descriptivo
@@ -93,7 +94,7 @@ pisos <- pisos %>%
     review_scores_rating >= 4.5 & review_scores_rating < 4.75 ~ "Entre 4.5 y 4.75 estrellas",
     review_scores_rating >= 4.75 & review_scores_rating < 5 ~"Entre 4.75 y 5 estrellas",
     review_scores_rating == 5 ~ "5 estrellas"
-  )) %>% dplyr::mutate(license = if_else(is.na(license), "No", "Si"))
+  )) %>% dplyr::mutate(license = if_else(is.na(license), 0, 1))
 ```
 
 Como el dataset municipios, a efectos prácticos solo tiene una variable, fusionaremos los dos datasets en el dataset pisos, cogiendo las coordenadas de cada alojamiento y viendo en que municipio se encuentra. El resultado final es el siguiente.
@@ -107,7 +108,8 @@ Empezando el análisis, presentamos dos gráficas para resumir el comportamiento
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, results="hide"}
 #pisos$license = as.factor(pisos$license)
-ggpairs(pisos, columns = c(3,5,6,8,10), ggplot2::aes(colour = license))
+pisos %>% dplyr::mutate(license = if_else(license == 0, "No", "Si")) %>% 
+  ggpairs(columns = c(3,5,6,8,10), ggplot2::aes(colour = license))
 ggpairs(pisos, columns = c(3,5,6,8,2), ggplot2::aes(colour = room_type))
 ```
 
@@ -333,7 +335,7 @@ Finalmente quiero destacar la alta correlación lineal entre el logaritmo del pr
 
 # Mapas
 
-```{r}
+```{r, echo = FALSE}
 mediana_precios <- aggregate(price ~ NAMEUNIT, data = pisos, FUN = median)
 municipios <- merge(municipios, mediana_precios, by.x = "NAMEUNIT", by.y = "NAMEUNIT", all.x = TRUE)
 
@@ -342,11 +344,55 @@ rm(mediana_precios)
 ```
 
 
-```{r, eval = FALSE}
-plot_mallorca <- ggplot()+
-  geom_sf(data=municipios, colour = "gray50", aes(fill = log(mediana_precio)))+
+
+```{r, echo = FALSE}
+min_corte = round(min(pisos$price), 0)
+max_corte = round(max(pisos$price), 0)
+
+# Crear cortes equiespaciados en la escala logarítmica
+breaks_log = round(exp(seq(log(min_corte), log(max_corte), length.out = 5)),0)
+
+plot_mallorca <- ggplot()+geom_sf(data=municipios, colour = "grey60")+
+  geom_point(data=pisos %>% filter(!is.na(price)), mapping = aes(x=longitude, y=latitude,
+                                        colour = price))+
   coord_sf(xlim = c(2.3,3.5), ylim = c(39.2,40)) +
-  scale_fill_gradient(name="Precios alquiler", low="yellow", high="red") +
+  scale_color_viridis(name="Precios alquiler", 
+                      trans = "log",
+                      breaks = breaks_log) +
+  xlab("Longitud")+
+  ylab("Latitud")+
+  ggspatial::annotation_scale(
+    location = "tl",
+    bar_cols = c("grey60", "white")
+  ) +
+  ggspatial::annotation_north_arrow(
+    location = "bl", which_north = "true",
+    pad_x = unit(0, "in"), pad_y = unit(0, "in"),
+    style = ggspatial::north_arrow_nautical(
+      fill = c("grey40", "white"),
+      line_col = "grey20"
+    )
+  )
+plot_mallorca 
+```
+
+
+
+
+```{r, echo = FALSE}
+min_corte = round(min(municipios$mediana_precio), 0)
+max_corte = round(max(municipios$mediana_precio), 0)
+
+# Crear cortes equiespaciados en la escala logarítmica
+breaks_mediana = round((seq((min_corte), (max_corte), length.out = 5)),0)
+
+
+plot_mallorca <- ggplot()+
+  geom_sf(data=municipios, colour = "#150000", aes(fill = (mediana_precio)))+
+  coord_sf(xlim = c(2.3,3.5), ylim = c(39.2,40)) +
+  scale_fill_viridis(name="Precios alquiler", 
+                      #trans = "log",
+                      breaks = breaks_mediana) + #low="#FFEC7E", high="#4A0000"
   xlab("Longitud")+
   ylab("Latitud")+
   ggspatial::annotation_scale(
@@ -364,3 +410,56 @@ plot_mallorca <- ggplot()+
 
 plot_mallorca 
 ```
+
+
+
+
+```{r, echo=FALSE}
+porcentaje_licencias <- aggregate(license ~ NAMEUNIT, data = pisos, 
+                                  FUN = function(x) mean(x) * 100)
+
+# Paso 2: Unir el porcentaje de licencias con el dataset de municipios
+municipios <- merge(municipios, porcentaje_licencias, by.x = "NAMEUNIT", 
+                    by.y = "NAMEUNIT", all.x = TRUE)
+
+# Paso 3: Renombrar la variable resultante para mayor claridad
+municipios <- municipios %>% rename(porcentaje_licencia = license)
+
+# Eliminar la variable temporal para liberar espacio
+rm(porcentaje_licencias)
+```
+
+```{r, echo = FALSE}
+
+# Paso 3: Crear el mapa del porcentaje de licencias por municipio
+plot_licencias <- ggplot() +
+  geom_sf(data = municipios, aes(fill = porcentaje_licencia), color = "#150000") +
+  coord_sf(xlim = c(2.3, 3.5), ylim = c(39.2, 40)) +
+  scale_fill_viridis(name = "Porcentaje \nde licencias",
+                      limits = c(0, 100),  # Asegura la escala de 0 a 100%
+                      labels = scales::percent_format(scale = 1)) +  # Formato de porcentaje
+  xlab("Longitud") +
+  ylab("Latitud") +
+  ggspatial::annotation_scale(
+    location = "tl",
+    bar_cols = c("grey60", "white")
+  ) +
+  ggspatial::annotation_scale(
+    location = "tl",
+    bar_cols = c("grey60", "white")
+  ) +
+  ggspatial::annotation_north_arrow(
+    location = "bl", which_north = "true",
+    pad_x = unit(0, "in"), pad_y = unit(0, "in"),
+    style = ggspatial::north_arrow_nautical(
+      fill = c("grey40", "white"),
+      line_col = "grey20"
+    )
+  )
+
+# Mostrar el mapa
+plot_licencias
+
+```
+
+

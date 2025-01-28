@@ -66,6 +66,8 @@ ul.task-list li input[type="checkbox"] {
 </header>
 
 
+<section id="análisis-descriptivo" class="level1">
+<h1>Análisis descriptivo</h1>
 <p>Para este ejemplo, usaremos dos datasets. El primer dataset que llamaremos ‘pisos’, contiene los datos de las residencias que se alquilan en Mallorca desde la página web de Airbnb.</p>
 <p>Por otro lado, el segundo dataset, que llamaremos ‘municipios’, contiene los datos de los municipios de España, incluyendo las fronteras entre los propios municipios.</p>
 <p>Antes de nada, haremos una selección de las variables que usaremos para nuestro trabajo. Del dataset pisos consideramos las siguientes variables:</p>
@@ -101,7 +103,7 @@ $ minimum_nights       &lt;dbl&gt; 32, 5, 4, 1, 7, 7, 7, 3, 6, 4, 5, 1, 7, 3, 3,
 $ availability_365     &lt;dbl&gt; 122, 2, 247, 75, 15, 103, 28, 122, 160, 226, 0, 1…
 $ number_of_reviews    &lt;dbl&gt; 263, 26, 377, 309, 64, 78, 5, 125, 54, 62, 82, 14…
 $ review_scores_rating &lt;chr&gt; "Entre 4.75 y 5 estrellas", "Entre 4.75 y 5 estre…
-$ license              &lt;chr&gt; "No", "Si", "Si", "No", "Si", "No", "Si", "Si", "…
+$ license              &lt;dbl&gt; 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1…
 $ longitude            &lt;dbl&gt; 2.654640, 3.301000, 2.897450, 2.500520, 3.218450,…
 $ latitude             &lt;dbl&gt; 39.56987, 39.61458, 39.73839, 39.67894, 39.66654,…
 $ NAMEUNIT             &lt;chr&gt; "Palma", "Sant Llorenç des Cardassar", "Selva", "…
@@ -139,12 +141,12 @@ $ geometry             &lt;POINT [°]&gt; POINT (2.65464 39.56987), POINT (3.301
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: center;">No</td>
+<td style="text-align: center;">0</td>
 <td style="text-align: center;">5075</td>
 <td style="text-align: center;">32.13</td>
 </tr>
 <tr class="even">
-<td style="text-align: center;">Si</td>
+<td style="text-align: center;">1</td>
 <td style="text-align: center;">10722</td>
 <td style="text-align: center;">67.87</td>
 </tr>
@@ -311,6 +313,37 @@ $ geometry             &lt;POINT [°]&gt; POINT (2.65464 39.56987), POINT (3.301
 </div>
 <p>Ahora vemos claramente que lo más normal es que el número mínimo de noches que hay que alquilar la residencia es de 1 día. Esto seguramente sea para ofrecer más flexibilidad al cliente además de no limitar su domicilio a ofertas más restrictivas. Tener que residir mínimo 5 o 7 días se deba a los alojamientos vacacionales, que tienen una clientela más familiar y permite que tengan de un hogar provisional durante la estancia.</p>
 <p>Finalmente quiero destacar la alta correlación lineal entre el logaritmo del precio y el número máximo de huéspedes. Es positiva, en concreto de 0.681, y es muy significativa, por lo que nos puede indicar que la base del modelo sea un modelo de regresión lineal. Además implica algo que ya pensábamos: que cuantos más huéspedes se puedan hospedar, más costará el alquiler. El resto de correlaciones muy significativas son negativas y no son muy grandes. La más grande de estas es la correlación entre el número de huéspedes y el número de reseñas, de -0.188, lo cual es raro ya que en principio si tienes más huéspedes te tendrían que poner más reseñas.</p>
+</section>
+<section id="mapas" class="level1">
+<h1>Mapas</h1>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="analisis_descriptivo_files/figure-html/unnamed-chunk-17-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="analisis_descriptivo_files/figure-html/unnamed-chunk-18-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="analisis_descriptivo_files/figure-html/unnamed-chunk-20-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
 
 </main>
 <!-- /main column -->
