@@ -164,6 +164,8 @@ SAR <- spreg(logprice~accommodates+minimum_nights+availability_365+
 
 summary(SAR)
 ```
+
+
 ```{r}
 impactos_SAR = sphet::impacts(SAR, listw = Wdist.list.tot)
 impactos_SAR
