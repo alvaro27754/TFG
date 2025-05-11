@@ -1,0 +1,555 @@
+---
+title: "introduccion"
+format: html
+editor: source
+Rendering:
+   embed-resources: true
+---
+
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(sf)
+library(readr)
+library(ggspatial)
+library(sphet)
+library(spatialreg)
+library(spdep)
+library(GGally)
+library(knitr)
+library(kableExtra)
+library(ellipse)
+library(readxl)
+library(viridis)
+library(patchwork)
+```
+
+
+#Limpieza datasets
+
+```{r, message=FALSE, echo= FALSE}
+precio_suelo = read_xls("datasets/precio_suelo.XLS") 
+
+lista_provincias = c(
+  "Almería",           
+  "Cádiz",             
+  "Córdoba",           
+  "Granada",           
+  "Huelva",            
+  "Jaén",              
+  "Málaga",            
+  "Sevilla",
+  "Huesca",            
+  "Teruel",            
+  "Zaragoza",          
+  "Asturias (Principado de )",
+  "Cantabria",
+  "Avila",             
+  "Burgos",            
+  "León",              
+  "Palencia",          
+  "Salamanca",         
+  "Segovia",           
+  "Soria",             
+  "Valladolid",        
+  "Zamora",
+  "Albacete",          
+  "Ciudad Real",       
+  "Cuenca",            
+  "Guadalajara",       
+  "Toledo", 
+  "Barcelona",
+  "Girona",
+  "Lleida",
+  "Tarragona",
+  "Alicante/Alacant",
+  "Castellón/Castelló",
+  "Valencia/València",
+  "Badajoz",           
+  "Cáceres",          
+  "Coruña (A)",
+  "Lugo",
+  "Ourense",
+  "Pontevedra",
+  "Madrid (Comunidad de)",
+  "Murcia (Región de)",
+  "Navarra (Comunidad Foral de)",
+  "Álava",
+  "Guipúzcoa",
+  "Vizcaya",
+  "Rioja (La)",
+  "Balears (Illes)"
+)
+
+precio_suelo = precio_suelo %>% dplyr::select(...1, ...74, ...75, ...76, ...77) %>% 
+   dplyr::filter(...1 %in% lista_provincias) %>% mutate(across(2:5, as.numeric))
+
+
+precio_suelo$media_precio = round(rowMeans(precio_suelo[,2:5]), 2)
+
+precio_suelo = precio_suelo %>% dplyr::select(...1, media_precio) %>% 
+   rename(NAMEUNIT = ...1)
+
+precio_suelo <- precio_suelo %>%
+  mutate(NAMEUNIT = case_when(
+    NAMEUNIT == "Coruña (A)" ~ "A Coruña",
+    NAMEUNIT == "Avila" ~ "Ávila",
+    NAMEUNIT == "Álava" ~ "Araba/Álava",
+    NAMEUNIT == "Alicante/Alacant" ~ "Alacant/Alicante",
+    NAMEUNIT == "Castellón/Castelló" ~ "Castelló/Castellón",
+    NAMEUNIT == "Guipúzcoa" ~ "Gipuzkoa",
+    NAMEUNIT == "Madrid (Comunidad de)" ~ "Madrid",
+    NAMEUNIT == "Murcia (Región de)" ~ "Murcia",
+    NAMEUNIT == "Navarra (Comunidad Foral de)" ~ "Navarra",
+    NAMEUNIT == "Asturias (Principado de )" ~ "Asturias",
+    NAMEUNIT == "Rioja (La)" ~ "La Rioja",
+    NAMEUNIT == "Valencia/València" ~ "València/Valencia",
+    NAMEUNIT == "Vizcaya" ~ "Bizkaia",
+    NAMEUNIT == "Balears (Illes)" ~ "Illes Balears",
+    TRUE ~ NAMEUNIT  # Mantiene el resto de valores sin cambios
+  ))
+
+
+provincias = read_sf("datasets/mapa_espana/recintos_provinciales_inspire_peninbal_etrs89.shp")
+provincias = provincias %>%  dplyr::select(NAMEUNIT) %>% 
+   dplyr::filter(!NAMEUNIT %in% c("Ceuta", "Melilla", "Territorios no asociados a ninguna provincia"))
+
+precio_suelo = full_join(precio_suelo, provincias, by = "NAMEUNIT") %>% 
+   st_as_sf() %>% st_transform(crs = 25831) # 3035
+
+
+
+
+tasa_actividad = read_csv2("datasets/tasa_empleo.csv")
+
+tasa_actividad = tasa_actividad %>% 
+  filter(Tasas == "Tasa de actividad", 
+         Periodo %in% c("2022T1","2022T2","2022T3","2022T4"),
+         !is.na(Provincias)) %>% 
+  rename(NAMEUNIT = Provincias) %>% 
+  mutate(NAMEUNIT = str_sub(NAMEUNIT, 4)) %>% 
+  group_by(NAMEUNIT) %>% 
+  summarise(tasa_actividad = mean(Total, na.rm = TRUE)) %>% 
+  mutate(NAMEUNIT = case_when(
+    NAMEUNIT == "Coruña, A" ~ "A Coruña",
+    NAMEUNIT == "Alicante/Alacant" ~ "Alacant/Alicante",
+    NAMEUNIT == "Castellón/Castelló" ~ "Castelló/Castellón",
+    NAMEUNIT == "Rioja, La" ~ "La Rioja",
+    NAMEUNIT == "Valencia/València" ~ "València/Valencia",
+    NAMEUNIT == "Balears, Illes" ~ "Illes Balears",
+    TRUE ~ NAMEUNIT  # Mantiene el resto de valores sin cambios
+  )) %>% 
+  filter(!NAMEUNIT %in% c("Ceuta", "Melilla", "Palmas, Las", "Santa Cruz de Tenerife"))
+
+precio_suelo = full_join(precio_suelo, tasa_actividad, by = "NAMEUNIT") %>% 
+  st_as_sf() %>% st_transform(crs = 25831) %>% 
+  relocate(tasa_actividad, .after = media_precio)
+```
+
+
+```{r, echo = FALSE}
+
+min_corte_original = min(precio_suelo$media_precio)
+max_corte_original = max(precio_suelo$media_precio)
+
+breaks_original = seq((min_corte_original), (max_corte_original), length.out = 5)
+
+colores = c("#F8F5A7", "#FF8401", "#AB1010" , "#540808", "#230F03")
+
+plot_espana <- ggplot(precio_suelo)+
+  geom_sf(color = "#150000", aes(fill = (media_precio)))+
+  scale_fill_gradientn(name = "Precio (€/m²)\n", 
+                       colors = colores,
+                       breaks = breaks_original) +
+  xlab("Longitud")+
+  ylab("Latitud")+
+  ggspatial::annotation_scale(
+    location = "tl",
+    bar_cols = c("grey60", "white")
+  ) +
+  ggspatial::annotation_north_arrow(
+    location = "bl", which_north = "true",
+    pad_x = unit(0, "in"), pad_y = unit(0, "in"),
+    style = ggspatial::north_arrow_nautical(
+      fill = c("grey40", "white"),
+      line_col = "grey20"
+    )
+  )
+
+plot_espana
+```
+
+
+#Indice de Moran
+
+```{r, eval=FALSE}
+W <- poly2nb(precio_suelo)          # Definir vecinos usando polígonos
+Wdist.list.tot <- nb2listw(W, zero.policy = TRUE)
+
+mp <- moran.plot(precio_suelo$media_precio, Wdist.list.tot, 
+                 labels=as.character(precio_suelo$NAMEUNIT), pch=19, 
+                 main="Diagrama de dispersión de Moran",
+                 xlab = "Precio medio del suelo",
+                 ylab = "Precio medio del suelo con desfase espacial")
+
+
+moran.test(precio_suelo$media_precio, listw = Wdist.list.tot, 
+           randomisation = TRUE, alternative = "two.sided")
+```
+#Simulacion OLS
+
+```{r}
+set.seed(777)
+n = nrow(precio_suelo)
+sigma = 16
+X = matrix(c(rep(1, n), precio_suelo$tasa_actividad), ncol = 2)
+beta = lm(media_precio ~ tasa_actividad, data = precio_suelo)$coefficients
+
+precio_suelo$YSimOLS = round(as.vector(X%*%beta+
+            matrix(rnorm(n, mean=0, sd=sigma), ncol=1)),2)
+
+
+min_corte = min(precio_suelo$YSimOLS)
+max_corte = max(precio_suelo$YSimOLS)
+
+breaks_media = seq((min_corte), (max_corte), length.out = 5)
+
+colores = c("#F8F5A7", "#FF8401", "#AB1010" , "#540808", "#230F03")
+
+plot_OLS_1 <- ggplot(precio_suelo)+
+  geom_sf(color = "#150000", aes(fill = (YSimOLS)))+
+  scale_fill_gradientn(name = "Precio (€/m²)\n", 
+                       colors = colores,
+                       breaks = breaks_media) +
+  xlab("Longitud")+
+  ylab("Latitud")+
+  ggspatial::annotation_scale(
+    location = "tl",
+    bar_cols = c("grey60", "white")
+  ) +
+  ggspatial::annotation_north_arrow(
+    location = "bl", which_north = "true",
+    pad_x = unit(0, "in"), pad_y = unit(0, "in"),
+    style = ggspatial::north_arrow_nautical(
+      fill = c("grey40", "white"),
+      line_col = "grey20"
+    )
+  )
+
+plot_OLS_1
+
+plot_OLS_2 <- ggplot(precio_suelo)+
+  geom_sf(color = "#150000", aes(fill = (YSimOLS)))+
+  scale_fill_gradientn(name = "Precio (€/m²)\n", 
+                       colors = colores,
+                       breaks = breaks_original,
+                       limits = c(min_corte_original, max_corte_original)) +
+  xlab("Longitud")+
+  ylab("Latitud")+
+  ggspatial::annotation_scale(
+    location = "tl",
+    bar_cols = c("grey60", "white")
+  ) +
+  ggspatial::annotation_north_arrow(
+    location = "bl", which_north = "true",
+    pad_x = unit(0, "in"), pad_y = unit(0, "in"),
+    style = ggspatial::north_arrow_nautical(
+      fill = c("grey40", "white"),
+      line_col = "grey20"
+    )
+  )
+
+plot_OLS_2
+```
+
+
+#Simulacion SAR
+
+
+```{r, eval=FALSE}
+set.seed(777)
+rho = -0.9
+sigma = 16
+n = nrow(precio_suelo)
+
+Wdist.mat.tot = nb2mat(neighbours = W, style = "W", zero.policy = TRUE)
+X = matrix(c(rep(1, n), precio_suelo$tasa_actividad), ncol = 2)
+beta = lm(media_precio ~ tasa_actividad, data = precio_suelo)$coefficients
+invA = solve(diag(n)-rho*Wdist.mat.tot)
+
+
+precio_suelo$YSimSAR = round(as.vector(invA%*%X%*%beta+
+            invA%*%matrix(rnorm(n, mean=0, sd=sigma), ncol=1)),2)
+
+min_corte = min(precio_suelo$YSimSAR)
+max_corte = max(precio_suelo$YSimSAR)
+
+breaks_media = seq((min_corte), (max_corte), length.out = 5)
+
+colores = c("#F8F5A7", "#FF8401", "#AB1010" , "#540808", "#230F03")
+
+plot_SAR_neg <- ggplot(precio_suelo)+
+  geom_sf(color = "#150000", aes(fill = (YSimSAR)))+
+  scale_fill_gradientn(name = "Precio (€/m²)\n", 
+                       colors = colores,
+                       breaks = breaks_media) +
+  xlab("Longitud")+
+  ylab("Latitud")+
+  ggspatial::annotation_scale(
+    location = "tl",
+    bar_cols = c("grey60", "white")
+  ) +
+  ggspatial::annotation_north_arrow(
+    location = "bl", which_north = "true",
+    pad_x = unit(0, "in"), pad_y = unit(0, "in"),
+    style = ggspatial::north_arrow_nautical(
+      fill = c("grey40", "white"),
+      line_col = "grey20"
+    )
+  )
+
+
+plot_SAR_neg
+
+
+set.seed(777)
+rho = 0.9
+
+invA = solve(diag(n)-rho*Wdist.mat.tot)
+
+
+precio_suelo$YSimSAR = round(as.vector(invA%*%X%*%beta+
+            invA%*%matrix(rnorm(n, mean=0, sd=sigma), ncol=1)),2)
+
+min_corte = min(precio_suelo$YSimSAR)
+max_corte = max(precio_suelo$YSimSAR)
+
+breaks_media = seq((min_corte), (max_corte), length.out = 5)
+
+colores = c("#F8F5A7", "#FF8401", "#AB1010" , "#540808", "#230F03")
+
+plot_SAR_pos <- ggplot(precio_suelo)+
+  geom_sf(color = "#150000", aes(fill = (YSimSAR)))+
+  scale_fill_gradientn(name = "Precio (€/m²)\n", 
+                       colors = colores,
+                       breaks = breaks_media) +
+  xlab("Longitud")+
+  ylab("Latitud")+
+  ggspatial::annotation_scale(
+    location = "tl",
+    bar_cols = c("grey60", "white")
+  ) +
+  ggspatial::annotation_north_arrow(
+    location = "bl", which_north = "true",
+    pad_x = unit(0, "in"), pad_y = unit(0, "in"),
+    style = ggspatial::north_arrow_nautical(
+      fill = c("grey40", "white"),
+      line_col = "grey20"
+    )
+  )
+
+plot_SAR_pos 
+
+
+
+```
+
+
+
+
+#Simulacion SEM
+
+
+
+```{r, eval=FALSE}
+set.seed(777)
+lambda = 0.9
+sigma = 16
+n = nrow(precio_suelo)
+
+Wdist.mat.tot = nb2mat(neighbours = W, style = "W", zero.policy = TRUE)
+invB = solve(diag(n)-lambda*Wdist.mat.tot)
+
+
+precio_suelo$YSimSEM = round(as.vector(X%*%beta+
+            invB%*%matrix(rnorm(n, mean=0, sd=sigma), ncol=1)),2)
+
+min_corte = min(precio_suelo$YSimSEM)
+max_corte = max(precio_suelo$YSimSEM)
+
+breaks_media = seq((min_corte), (max_corte), length.out = 5)
+
+colores = c("#F8F5A7", "#FF8401", "#AB1010" , "#540808", "#230F03")
+
+plot_SEM_pos <- ggplot(precio_suelo)+
+  geom_sf(color = "#150000", aes(fill = (YSimSEM)))+
+  scale_fill_gradientn(name = "Precio (€/m²)\n", 
+                       colors = colores,
+                       breaks = breaks_media) +
+  xlab("Longitud")+
+  ylab("Latitud")+
+  ggspatial::annotation_scale(
+    location = "tl",
+    bar_cols = c("grey60", "white")
+  ) +
+  ggspatial::annotation_north_arrow(
+    location = "bl", which_north = "true",
+    pad_x = unit(0, "in"), pad_y = unit(0, "in"),
+    style = ggspatial::north_arrow_nautical(
+      fill = c("grey40", "white"),
+      line_col = "grey20"
+    )
+  )
+
+plot_SEM_pos
+
+
+set.seed(777)
+lambda = -0.9
+
+invB = solve(diag(n)-lambda*Wdist.mat.tot)
+
+
+precio_suelo$YSimSEM = round(as.vector(X%*%beta+
+            invB%*%matrix(rnorm(n, mean=0, sd=sigma), ncol=1)),2)
+
+min_corte = min(precio_suelo$YSimSEM)
+max_corte = max(precio_suelo$YSimSEM)
+
+breaks_media = seq((min_corte), (max_corte), length.out = 5)
+
+colores = c("#F8F5A7", "#FF8401", "#AB1010" , "#540808", "#230F03")
+
+plot_SEM_neg <- ggplot(precio_suelo)+
+  geom_sf(color = "#150000", aes(fill = (YSimSEM)))+
+  scale_fill_gradientn(name = "Precio (€/m²)\n", 
+                       colors = colores,
+                       breaks = breaks_media) +
+  xlab("Longitud")+
+  ylab("Latitud")+
+  ggspatial::annotation_scale(
+    location = "tl",
+    bar_cols = c("grey60", "white")
+  ) +
+  ggspatial::annotation_north_arrow(
+    location = "bl", which_north = "true",
+    pad_x = unit(0, "in"), pad_y = unit(0, "in"),
+    style = ggspatial::north_arrow_nautical(
+      fill = c("grey40", "white"),
+      line_col = "grey20"
+    )
+  )
+
+plot_SEM_neg
+```
+
+
+
+#Simulacion SARAR
+
+```{r, echo=FALSE, eval=FALSE}
+set.seed(777)
+rho = -0.9
+lambda = 0.9
+sigma = 16
+n = nrow(precio_suelo)
+
+Wdist.mat.tot = nb2mat(neighbours = W, style = "W", zero.policy = TRUE)
+X = matrix(c(rep(1, n), precio_suelo$tasa_actividad), ncol = 2)
+beta = lm(media_precio ~ tasa_actividad, data = precio_suelo)$coefficients
+invA = solve(diag(n)-rho*Wdist.mat.tot)
+invB = solve(diag(n)-lambda*Wdist.mat.tot)
+
+
+
+precio_suelo$YSimSARAR = round(as.vector(invA%*%X%*%beta+
+            invA%*%invB%*%matrix(rnorm(n, mean=0, sd=sigma), ncol=1)),2)
+
+
+min_corte = min(precio_suelo$YSimSARAR)
+max_corte = max(precio_suelo$YSimSARAR)
+
+breaks_media = seq((min_corte), (max_corte), length.out = 5)
+
+colores = c("#F8F5A7", "#FF8401", "#AB1010" , "#540808", "#230F03")
+
+plot_ <- ggplot(precio_suelo)+
+  geom_sf(color = "#150000", aes(fill = (YSimSARAR)))+
+  scale_fill_gradientn(name = "Precio (€/m²)\n", 
+                       colors = colores,
+                       breaks = breaks_media) +
+  xlab("Longitud")+
+  ylab("Latitud")+
+  ggspatial::annotation_scale(
+    location = "tl",
+    bar_cols = c("grey60", "white")
+  ) +
+  ggspatial::annotation_north_arrow(
+    location = "bl", which_north = "true",
+    pad_x = unit(0, "in"), pad_y = unit(0, "in"),
+    style = ggspatial::north_arrow_nautical(
+      fill = c("grey40", "white"),
+      line_col = "grey20"
+    )
+  )
+
+plot_espana
+```
+
+
+
+
+
+
+
+```{r, eval=FALSE}
+set.seed(777)
+rho = -0.9999
+sigma = 16
+n = nrow(precio_suelo)
+
+Wdist.mat.tot = nb2mat(neighbours = W, style = "W", zero.policy = TRUE)
+X = matrix(c(rep(1, n), precio_suelo$tasa_actividad), ncol = 2)
+beta = lm(media_precio ~ tasa_actividad, data = precio_suelo)$coefficients
+invA = solve(diag(n)-rho*Wdist.mat.tot)
+
+
+
+precio_suelo$YSimSAR = round(as.vector(invA%*%X%*%beta+
+            invA%*%matrix(rnorm(n, mean=0, sd=sigma), ncol=1)),2)
+
+min_corte = min(precio_suelo$YSimSAR)
+max_corte = max(precio_suelo$YSimSAR)
+
+breaks_media = seq((min_corte), (max_corte), length.out = 5)
+
+colores = c("#F8F5A7", "#FF8401", "#AB1010" , "#540808", "#230F03")
+
+plot_espana <- ggplot(precio_suelo)+
+  geom_sf(color = "#150000", aes(fill = (YSimSAR)))+
+  scale_fill_gradientn(name = "Precio (€/m²)\n", 
+                       colors = colores,
+                       breaks = breaks_media) +
+  xlab("Longitud")+
+  ylab("Latitud")+
+  ggspatial::annotation_scale(
+    location = "tl",
+    bar_cols = c("grey60", "white")
+  ) +
+  ggspatial::annotation_north_arrow(
+    location = "bl", which_north = "true",
+    pad_x = unit(0, "in"), pad_y = unit(0, "in"),
+    style = ggspatial::north_arrow_nautical(
+      fill = c("grey40", "white"),
+      line_col = "grey20"
+    )
+  )
+
+plot_espana
+```
+
+
+
+

@@ -20,12 +20,17 @@ library(spdep)
 library(GGally)
 library(knitr)
 library(kableExtra)
+library(ellipse)
+library(readxl)
 ```
+
+
+
 
 
 ```{r}
 pisos = read_csv("datasets/listings.csv", show_col_types = FALSE)
-municipios = read_sf("datasets/mapa_espana/recintos_municipales_inspire_peninbal_etrs89.shp")
+municipios = read_sf("datasets/mapa_baleares/recintos_municipales_inspire_peninbal_etrs89.shp")
 
 
 
@@ -47,83 +52,57 @@ pisos$price <- gsub("[\\$, ]", "", pisos$price) %>% as.numeric()  # Quitar el s�
 
 pisos <- pisos %>% 
    dplyr::select(id, room_type, accommodates, price, minimum_nights, 
-                availability_365, number_of_reviews, review_scores_rating, 
+                availability_365, number_of_reviews, 
                 license, longitude, latitude, NAMEUNIT) %>% 
    
    dplyr::filter(price<5000, !is.na(NAMEUNIT), 
                  room_type %in% c("Entire home/apt", "Private room")) %>% 
    
    dplyr::mutate(logprice = log(price), .after = price) %>% 
-   
-   dplyr::mutate(review_scores_rating = case_when(
-   is.na(review_scores_rating) ~ "No tienen reviews",
-   review_scores_rating < 4 ~ "Menos de 4 estrellas",
-    review_scores_rating >= 4 & review_scores_rating < 4.5 ~ "Entre 4 y 4.5 estrellas",
-    review_scores_rating >= 4.5 & review_scores_rating < 4.75 ~ "Entre 4.5 y 4.75 estrellas",
-    review_scores_rating >= 4.75 & review_scores_rating < 5 ~"Entre 4.75 y 5 estrellas",
-    review_scores_rating == 5 ~ "5 estrellas"
-  )) %>% dplyr::mutate(license = if_else(is.na(license), 0, 1))
+   dplyr::mutate(license = if_else(is.na(license), 0, 1))
 ```
 
 
 
 
 ```{r}
-set.seed(777)
-
 a=fastDummies::dummy_cols(pisos$room_type)
 
 pisos$Entire=a[,2]
 
-
-OLS=lm(logprice~accommodates+minimum_nights+availability_365+
-        number_of_reviews+license+Entire, data=pisos)
-
 n <- dim(pisos)[1]
 
 puntos=cbind(pisos$longitude,pisos$latitude)
-
-dis <- dist(puntos,upper=TRUE)
-D=as.matrix(dis)
-
-#### Acá hay un problema por valores cercanos
-
-#W <- 1 / D^2
-
-#### Vamos por 
-
-W <- ifelse(D<0.0117, 1, 0)
-W[!is.finite(W)] <- NA
-W[is.na(W)] <- 0
-rtot <- rowSums(W, na.rm=TRUE)
-W <- W / rtot # Matriz estandarizada
-#W <- Matrix(round(W, 3), sparse = TRUE)
-
-#W <- Matrix(W, sparse = TRUE)
-
-
-
-rm(dis)
-rm(D)
 gc()
 gc()
-Wdist.mat.tot=W
-Wdist.list.tot=mat2listw(W)
-rm(W)
+nbdist <- 0.0117
+Dist = dist(puntos)
+
+WW = ifelse(as.matrix(Dist)<nbdist, 1, 0)
+
+rm(Dist)
+   
+WW = Matrix(WW, sparse = TRUE)
+
+
+diag(WW) = 0
+rtot <- rowSums(WW, na.rm=TRUE)
+rtot[rtot==0] = 0.1
+WW = WW/rtot
+
+gc()
+gc()
 ```
-
-
-
 
 
 
 
 ## SARAR
 
-```{r}
+```{r, echo = FALSE}
 SARAR <- spreg(logprice~accommodates+minimum_nights+availability_365+
                  number_of_reviews+license+Entire, data=pisos,
-               listw = Wdist.list.tot, model="sarar", het=TRUE)
+                 listw = WW, model="sarar", het=FALSE)
 
 #### El sarar solo llevaba la matriz W con la distancia a la menos 1
 #### El sara W1 lleva la matriz con W que vale 1 si estas a menos de 0.05 de distancia
@@ -131,53 +110,165 @@ SARAR <- spreg(logprice~accommodates+minimum_nights+availability_365+
 summary(SARAR)
 ```
 
+
 ```{r}
-impactos_SARAR = sphet::impacts(SARAR, listw = Wdist.list.tot)
+res = SARAR$residuals
+moran.plot(pisos$logprice, mat2listw(WW), zero.policy = TRUE)
+moran.test(res, mat2listw(WW), zero.policy = TRUE, alternative = "two.sided")
+```
+
+
+```{r}
+# Suponiendo que tu modelo se llama 'modelo'
+resumen <- summary(SARAR)
+
+# Extraer coeficientes como data frame
+tabla_coef <- as.data.frame(resumen$Coef)
+
+IpWm1 = solve(diag(n)-SARAR$coefficients[8]*WW)
+gc()
+gc()
+
+semielasticidades = tibble(a = "-", b = "-", c = "-")
+
+
+for(k in 2:(length(SARAR$coefficients)-2)){
+   S_k = SARAR$coefficients[k]*IpWm1
+   SED = mean(diag(S_k))
+   SET = mean(colSums(S_k))
+   SEI = SET-SED
+   semielasticidades = rbind(semielasticidades, round(c(SED,SEI,SET),7))
+}
+
+semielasticidades = rbind(semielasticidades, c("-","-","-"))
+semielasticidades = rbind(semielasticidades, c("-","-","-"))
+
+
+
+tabla_coef = cbind(tabla_coef, semielasticidades)
+
+# Renombrar columnas para mayor claridad
+colnames(tabla_coef) <- c("Estimación", "Error estándar", "Valor t", "p-valor", "SE directa", "SE indirecta", "SE total")
+
+tabla_coef[4, 5] <- format(as.numeric(tabla_coef[4, 5]), scientific = FALSE, digits = 7)
+tabla_coef[4, 6] <- format(as.numeric(tabla_coef[4, 6]), scientific = FALSE, digits = 7)
+tabla_coef[5, 6] <- format(as.numeric(tabla_coef[5, 6]), scientific = FALSE, digits = 7)
+
+
+nombres <- rownames(tabla_coef)
+
+# Encontrar posiciones
+pos_a <- which(nombres == "lambda")
+pos_b <- which(nombres == "rho")
+
+# Intercambiar
+nombres[c(pos_a, pos_b)] <- nombres[c(pos_b, pos_a)]
+
+# Asignar nuevos nombres
+rownames(tabla_coef) <- nombres
+
+
+knitr::kable(tabla_coef, caption = "<div style='text-align:center; font-size:24px; color:black ;'>Parámetros del modelo</div>") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),
+                            full_width = FALSE, position = "center")
+
+```
+
+
+
+
+
+```{r, eval=FALSE}
+SAR <- spreg(logprice~accommodates+minimum_nights+availability_365+
+                 number_of_reviews+license+Entire, data=pisos,
+                 listw = WW, model="lag", het=FALSE)
+
+#### El sarar solo llevaba la matriz W con la distancia a la menos 1
+#### El sara W1 lleva la matriz con W que vale 1 si estas a menos de 0.05 de distancia
+#save(SARAR, file="SARARW1.RData")
+summary(SAR)
+```
+
+```{r, eval = FALSE}
+SEM <- spreg(logprice~accommodates+minimum_nights+availability_365+
+                 number_of_reviews+license+Entire, data=pisos,
+                 listw = WW, model="error", het=FALSE)
+
+#### El sarar solo llevaba la matriz W con la distancia a la menos 1
+#### El sara W1 lleva la matriz con W que vale 1 si estas a menos de 0.05 de distancia
+#save(SARAR, file="SARARW1.RData")
+summary(SEM)
+
+```
+
+
+
+
+```{r, eval = FALSE}
+# Agregar una columna de "nivel" para identificar cada elipse
+elipse_95 = ellipse::ellipse(SARAR$var[8:9,8:9], center = SARAR$coefficients[8:9], 
+                          npoints = 100000, level = 0.95) %>% 
+  as_tibble() %>% mutate(nivel = "95%")
+elipse_99 = ellipse::ellipse(SARAR$var[8:9,8:9], center = SARAR$coefficients[8:9], 
+                          npoints = 100000, level = 0.99) %>% 
+  as_tibble() %>% mutate(nivel = "99%")
+elipse_999 = ellipse::ellipse(SARAR$var[8:9,8:9], center = SARAR$coefficients[8:9], 
+                          npoints = 100000, level = 0.999) %>% 
+  as_tibble() %>% mutate(nivel = "99.9%")
+elipse_9999 = ellipse::ellipse(SARAR$var[8:9,8:9], center = SARAR$coefficients[8:9], 
+                          npoints = 100000, level = 0.9999) %>% 
+  as_tibble() %>% mutate(nivel = "99.99%")
+
+# Unir todas las elipses en un solo data frame
+elipses <- bind_rows(elipse_95, elipse_99, elipse_999, elipse_9999)
+
+# Definir el orden deseado de los niveles
+elipses <- elipses %>%
+  mutate(nivel = factor(nivel, levels = c("99.99%", "99.9%", "99%", "95%")))
+
+# Graficar con los colores en el orden correcto
+ggplot() +
+  geom_path(data = elipses, aes(x = lambda, y = rho, color = nivel), linewidth = 1L) +
+  annotate("point", x = SARAR$coefficients[8], y = SARAR$coefficients[9], size = 5) +
+  xlim(min(elipse_9999$lambda) - 0.025, max(elipse_9999$lambda) + 0.025) +
+  ylim(min(elipse_9999$rho) - 0.025, max(elipse_9999$rho) + 0.025) +
+  labs(x = "Rho (\U03C1)", y = "Lambda (\U03BB)", color = "Nivel de confianza") +
+  scale_color_brewer(palette = "Set1") +  # Colores en el orden definido
+  theme_bw() +
+  theme(
+    legend.position = c(0.95, 0.95),  
+    legend.justification = c(1, 1),  
+    legend.key.size = unit(0.5, "cm"),  
+    legend.text = element_text(size = 8)  
+  )
+
+
+```
+
+
+```{r, eval=FALSE}
+impactos_SARAR = sphet::impacts(SARAR, listw = mat2listw(WW))
 impactos_SARAR
 ```
 
-```{r}
+```{r, eval=FALSE}
 W = Matrix(Wdist.mat.tot, sparse=TRUE)
 IpWm1 = solve(diag(n)-SARAR$coefficients[8]*W)
 gc()
 gc()
 ```
-```{r}
+
+```{r, eval=FALSE}
 ### Impactos
 for(k in 2:(length(SARAR$coefficients)-2)){
    S_k = SARAR$coefficients[k]*IpWm1
-   ID = mean(diag(S_k))
-   IT = mean(colSums(S_k))
-   II = IT-ID
-   print(paste("Para la variable ", rownames(SARAR$coefficients)[k]))
-   print(cbind(SARAR$coefficients[k],ID, II, IT))
+   SED = mean(diag(S_k))
+   SET = mean(colSums(S_k))
+   SEI = SET-SED
 }
 ```
 
 
-## SAR
-
-```{r}
-SAR <- spreg(logprice~accommodates+minimum_nights+availability_365+
-                 number_of_reviews+license+Entire, data=pisos,
-               listw = Wdist.list.tot, model="lag", het=TRUE)
-
-summary(SAR)
-```
-
-
-```{r}
-impactos_SAR = sphet::impacts(SAR, listw = Wdist.list.tot)
-impactos_SAR
-```
-
-
-```{r}
-SEM <- spreg(logprice~accommodates+minimum_nights+availability_365+
-                 number_of_reviews+license+Entire, data=pisos,
-               listw = Wdist.list.tot, model="error", het=TRUE)
-summary(SEM)
-```
 
 
 
@@ -225,9 +316,68 @@ summary(SEM)
 
 # Cosas en el olvido
 
+
+
+```{r, eval=FALSE}
+a=fastDummies::dummy_cols(pisos$room_type)
+
+pisos$Entire=a[,2]
+
+
+OLS=lm(logprice~accommodates+minimum_nights+availability_365+
+        number_of_reviews+license+Entire, data=pisos)
+
+n <- dim(pisos)[1]
+
+puntos=cbind(pisos$longitude,pisos$latitude)
+
+dis <- dist(puntos,upper=TRUE)
+D=as.matrix(dis)
+
+#### Acá hay un problema por valores cercanos
+
+#W <- 1 / D^2
+
+#### Vamos por 
+
+W <- ifelse(D<0.0117, 1, 0)
+diag(W)=0
+rtot <- rowSums(W, na.rm=TRUE)
+W <- W / rtot # Matriz estandarizada
+W[!is.finite(W)] <- NA
+W[is.na(W)] <- 0
+
+#W <- Matrix(round(W, 3), sparse = TRUE)
+
+W <- Matrix(W, sparse = TRUE)
+
+
+
+rm(dis)
+rm(D)
+gc()
+gc()
+Wdist.mat.tot=W
+Wdist.list.tot=mat2listw(Wdist.mat.tot, zero.policy = TRUE)
+rm(W)
+
+SARAR <- spreg(logprice~accommodates+minimum_nights+availability_365+
+                 number_of_reviews+license+Entire, data=pisos,
+                 listw = Wdist.list.tot, model="sarar", het=FALSE)
+
+#### El sarar solo llevaba la matriz W con la distancia a la menos 1
+#### El sara W1 lleva la matriz con W que vale 1 si estas a menos de 0.05 de distancia
+#save(SARAR, file="SARARW1.RData")
+summary(SARAR)
+```
+
+
+
+
+
 #### Modelo SARAR
 
-```{r}
+```{r, eval=FALSE}
 
 DatosF <- Datos %>% dplyr::filter(!is.na(price)) %>% 
   dplyr::filter(price<5000, price>10, 
@@ -275,7 +425,7 @@ W <- W / rtot # Matriz estandarizada
 rm(dis)
 ```
 
-```{r}
+```{r, eval=FALSE}
 SAR=lagsarlm(log(price)~minimum_nights+number_of_reviews+
                calculated_host_listings_count+license+availability_365+Entire,
              data=DatosF,listw = Wdist.list.tot,zero.policy = TRUE)
@@ -295,17 +445,17 @@ summary(SARAR)
 
 
 
-```{r}
+```{r, eval=FALSE}
 SARAR_2=sacsarlm(logprice~accommodates+minimum_nights+availability_365+
                  number_of_reviews+license+Entire, data=pisos,
-                 listw = Wdist.list.tot,zero.policy = TRUE)
+                 listw = WW, zero.policy = TRUE)
 
 summary(SARAR_2)
 ```
 
 ### SAR
 
-```{r}
+```{r, eval=FALSE}
 SAR=lagsarlm(logprice~accommodates+minimum_nights+availability_365+
                  number_of_reviews+license+Entire, data=pisos,
                  listw = Wdist.list.tot,zero.policy = TRUE)
@@ -317,12 +467,12 @@ summary(SAR)
 
 ### SEM
 
-```{r}
+```{r, eval=FALSE}
 SD = diag(diag(SARAR$var[8:9, 8:9])^(-1/2))
 SD%*%SARAR$var[8:9, 8:9]%*%SD
 ```
 
-```{r}
+```{r, eval=FALSE}
 SEM=errorsarlm(log(price)~minimum_nights+number_of_reviews+
                license+availability_365+Entire,
              data=muestra,listw = Wdist.list.tot,zero.policy = TRUE)

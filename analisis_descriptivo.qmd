@@ -32,7 +32,7 @@ pisos = read_csv("datasets/listings.csv", show_col_types = FALSE)
 Por otro lado, el segundo dataset, que llamaremos 'municipios', contiene los datos de los municipios de España, incluyendo las fronteras entre los propios municipios.
 
 ```{r,echo =FALSE}
-municipios = read_sf("datasets/mapa_espana/recintos_municipales_inspire_peninbal_etrs89.shp")
+municipios = read_sf("datasets/mapa_baleares/recintos_municipales_inspire_peninbal_etrs89.shp")
 #municipios %>% glimpse()
 ```
 Antes de nada, haremos una selección de las variables que usaremos para nuestro trabajo. Del dataset pisos consideramos las siguientes variables:
@@ -200,7 +200,7 @@ Resalta a la vista el parecido a la distribución normal, pero ya lo comprobarem
 
 ```{r, echo=FALSE}
 # Obtener el resumen de la variable logprice
-resumen_logprice <- summary(pisos$logprice)
+resumen_logprice <- summary(pisos$price)
 
 # Convertir el resumen en un data frame con nombres personalizados
 tabla_resumen_logprice <- data.frame(
@@ -216,7 +216,7 @@ colnames(tabla_resumen_logprice_t) <- tabla_resumen_logprice$Estadística
 
 # Mostrar la tabla con kable
 kable(tabla_resumen_logprice_t, 
-      caption = "Resumen estadístico del logaritmo del precio",
+      caption = "Resumen estadístico del precio del alquiler",
       align = "c") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                 full_width = FALSE,
