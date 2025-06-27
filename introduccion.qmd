@@ -122,7 +122,7 @@ precio_suelo = full_join(precio_suelo, provincias, by = "NAMEUNIT") %>%
 
 
 
-tasa_actividad = read_csv2("datasets/tasa_empleo.csv")
+tasa_actividad = read_csv2("datasets/tasa_empleo.csv", locale = locale(encoding = "Latin1"))
 
 tasa_actividad = tasa_actividad %>% 
   filter(Tasas == "Tasa de actividad", 
@@ -141,7 +141,7 @@ tasa_actividad = tasa_actividad %>%
     NAMEUNIT == "Balears, Illes" ~ "Illes Balears",
     TRUE ~ NAMEUNIT  # Mantiene el resto de valores sin cambios
   )) %>% 
-  filter(!NAMEUNIT %in% c("Ceuta", "Melilla", "Palmas, Las", "Santa Cruz de Tenerife"))
+  filter(!NAMEUNIT %in% c("Ceuta", "Melilla", "Palmas, Las", "Santa Cruz de Tenerife","al Nacional"))
 
 precio_suelo = full_join(precio_suelo, tasa_actividad, by = "NAMEUNIT") %>% 
   st_as_sf() %>% st_transform(crs = 25831) %>% 

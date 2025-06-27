@@ -22,6 +22,12 @@ library(knitr)
 library(kableExtra)
 library(ellipse)
 library(readxl)
+library(viridis)
+library(car)
+library(mgcv)
+library(stargazer)
+library(openxlsx)
+library(psych)
 ```
 
 
@@ -30,7 +36,7 @@ library(readxl)
 
 ```{r}
 pisos = read_csv("datasets/listings.csv", show_col_types = FALSE)
-municipios = read_sf("datasets/mapa_baleares/recintos_municipales_inspire_peninbal_etrs89.shp")
+municipios = read_sf("datasets/mapa_espana/recintos_municipales_inspire_peninbal_etrs89.shp")
 
 
 
@@ -72,6 +78,9 @@ pisos$Entire=a[,2]
 
 n <- dim(pisos)[1]
 
+OLS = lm(logprice~accommodates+minimum_nights+availability_365+
+                  number_of_reviews+license+Entire, data=pisos)
+
 puntos=cbind(pisos$longitude,pisos$latitude)
 gc()
 gc()
@@ -99,49 +108,120 @@ gc()
 
 ## SARAR
 
+
+```{r, echo = FALSE, eval=FALSE}
+SARARHom <- spreg(logprice~accommodates+minimum_nights+availability_365+
+                  number_of_reviews+license+Entire, data=pisos,
+               listw = WW, model="sarar", het=FALSE)
+
+summary(SARARHom)
+### nu=  Ay-Xb
+res = SARARHom$residuals
+resB = as.vector((diag(n)- SARARHom$coefficients[9]*WW)%*%matrix(res, ncol=1))
+moran.test(resB, mat2listw(WW), zero.policy = TRUE, alternative = "two.sided")
+
+### Variabilidad
+
+pisos$Residuales = resB
+
+qqPlot(resB)
+
+
+VarMun= pisos %>% group_by(NAMEUNIT) %>% 
+   summarise(Var=var(ResidualSARARHet)) %>% st_drop_geometry()
+
+municipios = full_join(municipios, VarMun, by = "NAMEUNIT") %>% 
+   st_as_sf()
+
+
+
+min_corte = round(min(municipios$Var), 3)
+max_corte = round(max(municipios$Var), 3)
+
+# Crear cortes equiespaciados en la escala logarítmica
+breaks_mediana = round((seq((min_corte), (max_corte), length.out = 5)),3)
+
+
+plot_mallorca <- ggplot()+
+  geom_sf(data=municipios, colour = "#150000", aes(fill = (Var)))+
+  coord_sf(xlim = c(2.3,3.5), ylim = c(39.2,40)) +
+  scale_fill_gradientn(name="Varianza por\n municipio", 
+                      #trans = "log",
+                      colors = (viridis(5)),
+                      breaks = breaks_mediana,
+                      limits = c(min_corte-0.001, max_corte+0.001)) + #low="#FFEC7E", high="#4A0000"
+  xlab("Longitud")+
+  ylab("Latitud")+
+  ggspatial::annotation_scale(
+    location = "tl",
+    bar_cols = c("grey60", "white")
+  ) +
+  ggspatial::annotation_north_arrow(
+    location = "bl", which_north = "true",
+    pad_x = unit(0, "in"), pad_y = unit(0, "in"),
+    style = ggspatial::north_arrow_nautical(
+      fill = c("grey40", "white"),
+      line_col = "grey20"
+    )
+  )
+
+plot_mallorca 
+
+```
+
+```{r, eval=FALSE}
+SARAR <- spreg(logprice~accommodates+minimum_nights+availability_365+
+                  number_of_reviews+license+Entire, data=pisos,
+               listw = WW, model="sarar", het=TRUE)
+
+summary(SARAR)
+
+gc()
+gc()
+
+res = SARAR$residuals
+resB = as.vector((diag(n)- SARAR$coefficients[9]*WW)%*%matrix(res, ncol=1))
+
+pisos$ResidualSARARHet = resB
+
+#moran.test(resB, listw = mat2listw(WW), zero.policy = TRUE, alternative = "two.sided")
+```
+
+###Resultados
+
 ```{r, echo = FALSE}
 SARAR <- spreg(logprice~accommodates+minimum_nights+availability_365+
-                 number_of_reviews+license+Entire, data=pisos,
-                 listw = WW, model="sarar", het=FALSE)
+                  number_of_reviews+license+Entire, data=pisos,
+               listw = WW, model="sarar", het=FALSE)
 
-#### El sarar solo llevaba la matriz W con la distancia a la menos 1
-#### El sara W1 lleva la matriz con W que vale 1 si estas a menos de 0.05 de distancia
-#save(SARAR, file="SARARW1.RData")
-summary(SARAR)
-```
-
-
-```{r}
-res = SARAR$residuals
-moran.plot(pisos$logprice, mat2listw(WW), zero.policy = TRUE)
-moran.test(res, mat2listw(WW), zero.policy = TRUE, alternative = "two.sided")
-```
-
-
-```{r}
-# Suponiendo que tu modelo se llama 'modelo'
 resumen <- summary(SARAR)
 
 # Extraer coeficientes como data frame
 tabla_coef <- as.data.frame(resumen$Coef)
 
 IpWm1 = solve(diag(n)-SARAR$coefficients[8]*WW)
+
 gc()
 gc()
 
-semielasticidades = tibble(a = "-", b = "-", c = "-")
+semielasticidades = tibble(a = NA, b = NA, c = NA)
 
+gc()
 
 for(k in 2:(length(SARAR$coefficients)-2)){
-   S_k = SARAR$coefficients[k]*IpWm1
-   SED = mean(diag(S_k))
-   SET = mean(colSums(S_k))
-   SEI = SET-SED
+   eS_k = exp(SARAR$coefficients[k]*IpWm1)
+   #eS_k = exp(S_k) 
+   print(k)
+   SED = geometric.mean(diag(eS_k))
+  
+   SET =  geometric.mean(apply(eS_k, 1, prod))
+   SEI = SET/SED
+   print(c(SED, SEI, SET))
    semielasticidades = rbind(semielasticidades, round(c(SED,SEI,SET),7))
 }
 
-semielasticidades = rbind(semielasticidades, c("-","-","-"))
-semielasticidades = rbind(semielasticidades, c("-","-","-"))
+semielasticidades = rbind(semielasticidades, c(NA,NA,NA))
+semielasticidades = rbind(semielasticidades, c(NA,NA,NA))
 
 
 
@@ -149,6 +229,8 @@ tabla_coef = cbind(tabla_coef, semielasticidades)
 
 # Renombrar columnas para mayor claridad
 colnames(tabla_coef) <- c("Estimación", "Error estándar", "Valor t", "p-valor", "SE directa", "SE indirecta", "SE total")
+
+
 
 tabla_coef[4, 5] <- format(as.numeric(tabla_coef[4, 5]), scientific = FALSE, digits = 7)
 tabla_coef[4, 6] <- format(as.numeric(tabla_coef[4, 6]), scientific = FALSE, digits = 7)
@@ -170,41 +252,18 @@ rownames(tabla_coef) <- nombres
 
 knitr::kable(tabla_coef, caption = "<div style='text-align:center; font-size:24px; color:black ;'>Parámetros del modelo</div>") %>%
   kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),
-                            full_width = FALSE, position = "center")
+                            full_width = FALSE, position = "right") %>% 
+  column_spec(5, extra_css = "text-align: right;") %>% 
+  column_spec(6, extra_css = "text-align: right;") %>% 
+  column_spec(7, extra_css = "text-align: right;")
+
 
 ```
 
 
 
 
-
-```{r, eval=FALSE}
-SAR <- spreg(logprice~accommodates+minimum_nights+availability_365+
-                 number_of_reviews+license+Entire, data=pisos,
-                 listw = WW, model="lag", het=FALSE)
-
-#### El sarar solo llevaba la matriz W con la distancia a la menos 1
-#### El sara W1 lleva la matriz con W que vale 1 si estas a menos de 0.05 de distancia
-#save(SARAR, file="SARARW1.RData")
-summary(SAR)
-```
-
-```{r, eval = FALSE}
-SEM <- spreg(logprice~accommodates+minimum_nights+availability_365+
-                 number_of_reviews+license+Entire, data=pisos,
-                 listw = WW, model="error", het=FALSE)
-
-#### El sarar solo llevaba la matriz W con la distancia a la menos 1
-#### El sara W1 lleva la matriz con W que vale 1 si estas a menos de 0.05 de distancia
-#save(SARAR, file="SARARW1.RData")
-summary(SEM)
-
-```
-
-
-
-
-```{r, eval = FALSE}
+```{r, eval = FALSE, echo = FALSE}
 # Agregar una columna de "nivel" para identificar cada elipse
 elipse_95 = ellipse::ellipse(SARAR$var[8:9,8:9], center = SARAR$coefficients[8:9], 
                           npoints = 100000, level = 0.95) %>% 
@@ -246,27 +305,491 @@ ggplot() +
 ```
 
 
+
+```{r, eval = FALSE}
+# Valores observados y predichos
+y <- pisos$logprice
+
+
+# SSE y SST
+SSE <- sum(pisos$ResidualSARARHet^2)
+SST <- sum((y - mean(y))^2)
+
+
+k = length(SARAR$coefficients)  # Incluye betas, rho, lambda
+
+MSE_SARAR = mean(pisos$ResidualSARARHet^2)
+MSE_SARAR
+
+MAPE_SARAR <- mean(abs((pisos$ResidualSARARHet) / y)) * 100
+MAPE_SARAR
+
+# R²
+R2_SARAR <- 1 - SSE / SST
+R2_SARAR
+
+# R² ajustado
+R2_adj_SARAR <- 1 - (SSE / (n - k)) / (SST / (n - 1))
+R2_adj_SARAR
+
+
+A = Diagonal(n) - SARAR$coefficients[k-1]*WW
+B = Diagonal(n) - SARAR$coefficients[k]*WW
+sigma2 = as.numeric(SARAR$s2)
+nu =(1/(sqrt(sigma2)))*pisos$ResidualSARARHet
+inL = -n/2*log(2*pi)-log(sigma2) +log(det(A))+log(det(B))-0.5*(t(nu)%*%nu)
+
+
+
+
+QIC_SARAR =-2*inL+2*k
+QIC_SARAR
+
+
+
+```
+
+##SAR
+
+```{r, echo=FALSE, eval=FALSE}
+SAR <- spreg(logprice~accommodates+minimum_nights+availability_365+
+                 number_of_reviews+license+Entire, data=pisos,
+                 listw = WW, model="lag", het=TRUE)
+
+
+moran.test(SAR$residuals, listw = mat2listw(WW), zero.policy = TRUE, alternative = "two.sided")
+
+pisos$ResidualSAR = SAR$residuals
+
+SSE <- sum(pisos$ResidualSAR^2)
+
+k = length(SAR$coefficients)  # Incluye betas, rho, lambda
+
+
+MSE_SAR = mean(pisos$ResidualSAR^2)
+MSE_SAR
+
+
+MAPE_SAR <- mean(abs((pisos$ResidualSAR) / y)) * 100
+MAPE_SAR
+
+# R²
+R2_SAR <- 1 - SSE / SST
+R2_SAR
+
+# R² ajustado
+R2_adj_SAR <- 1 - (SSE / (n - k)) / (SST / (n - 1))
+R2_adj_SAR
+
+
+
+A = Diagonal(n) - SARAR$coefficients[k]*WW
+
+sigma2 = as.numeric(SAR$s2)
+nu =(1/(sqrt(sigma2)))*pisos$ResidualSAR
+inL = -n/2*log(2*pi)-log(sigma2) +log(det(A))-0.5*(t(nu)%*%nu)
+
+QIC_SAR =-2*inL+2*k
+QIC_SAR
+
+
+```
+
+##SEM
+
 ```{r, eval=FALSE}
-impactos_SARAR = sphet::impacts(SARAR, listw = mat2listw(WW))
-impactos_SARAR
+SEM <- spreg(logprice~accommodates+minimum_nights+availability_365+
+                 number_of_reviews+license+Entire, data=pisos,
+                 listw = WW, model="error", het=TRUE)
+
+moran.test(SEM$residuals, listw = mat2listw(WW), zero.policy = TRUE, alternative = "two.sided")
+
+summary(SEM)
+
+B = Diagonal(n) - SEM$coefficients[k]*WW
+
+pisos$ResidualSEM = SEM$residuals
+
+
+SSE <- sum(pisos$ResidualSEM^2)
+
+k = length(SEM$coefficients)  # Incluye betas, rho, lambda
+
+
+MSE_SEM = mean(pisos$ResidualSEM^2)
+MSE_SEM
+
+
+MAPE_SEM <- mean(abs((pisos$ResidualSEM) / y)) * 100
+MAPE_SEM
+
+# R²
+R2_SEM <- 1 - SSE / SST
+R2_SEM
+
+# R² ajustado
+R2_adj_SEM <- 1 - (SSE / (n - k)) / (SST / (n - 1))
+R2_adj_SEM
+
+
+sigma2 = as.numeric(SAR$s2)
+nu =(1/(sqrt(sigma2)))*pisos$ResidualSEM
+inL = -n/2*log(2*pi)-log(sigma2) +log(det(A))-0.5*(t(nu)%*%nu)
+
+QIC_SEM =-2*inL+2*k
+QIC_SEM
+
+
+```
+
+
+
+
+
+##GAM
+
+```{r, eval = FALSE}
+#### GAM
+modelo = gam(logprice~s(longitude,latitude,  k=400)+accommodates+minimum_nights+availability_365+
+                   number_of_reviews+license+Entire, data=pisos)
+
+gc()
+gc()
+
+summary(modelo)
+plot(modelo)
+
+
+
+# Dibujar usando el sistema base
+vis.gam(modelo,
+        view = c("longitude", "latitude"),
+        type = "response",
+        ticktype = "detailed",
+        theta = 120,
+        phi = 30,
+        cex.axis = 1.75,
+        cex.lab = 1.75)
+
+
+qq.gam(modelo,rep=100,level=0.99,pch=19,cex=.2)
+par(mfrow=c(2,2))
+gam.check(modelo)
+
+
+
+pisos$ResidualGAM = modelo$residuals
+p <- sum(modelo$edf)
+
+MSE_GAM = mean(pisos$ResidualGAM^2)
+MSE_GAM
+
+
+MAPE_GAM <- mean(abs((pisos$ResidualGAM) / y)) * 100
+MAPE_GAM
+
+
+rss <- sum(pisos$ResidualGAM^2)
+tss <- sum((modelo$y - mean(modelo$y))^2)
+R2_GAM <- 1 - rss / tss
+
+# R2 ajustado
+R2_adj_GAM <- 1 - ((1 - R2_GAM) * (n - 1)) / (n - p - 1)
+R2_adj_GAM
+
+QIC_GAM = modelo$aic
 ```
 
 ```{r, eval=FALSE}
-W = Matrix(Wdist.mat.tot, sparse=TRUE)
-IpWm1 = solve(diag(n)-SARAR$coefficients[8]*W)
+
 gc()
 gc()
+
+df_sf <- st_as_sf(pisos, coords = c("longitude","latitude"), crs = st_crs(municipios))
+
+
+bbox <- st_bbox(df_sf)  # Limites del dataframe original de puntos
+grd <- expand.grid(longitude= seq(bbox["xmin"], bbox["xmax"], by = 0.001),
+                    latitude = seq(bbox["ymin"], bbox["ymax"], by = 0.001))
+
+
+gc()
+gc()
+
+# Convertir el grid a un objeto sf
+grd_sf <- st_as_sf(grd, coords = c("longitude","latitude"), crs = st_crs(municipios))
+
+# Suponiendo que tienes un modelo GAM llamado "modelo_gam"
+
+grd_sf <- grd_sf %>% 
+   mutate(accommodates=1,
+          minimum_nights=1,
+          availability_365 =median(pisos$availability_365),
+          number_of_reviews =median(pisos$number_of_reviews),
+          license=0,
+          Entire=0,
+          longitude=st_coordinates(grd_sf)[,1],
+          latitude=st_coordinates(grd_sf)[,2])
+
+gc()
+gc()
+
+### Muy demorado
+## Tomate un café
+grd_sf$predicted_precio <- predict(modelo, newdata = grd_sf, type = "response")
+
+
+gc()
+gc()
+
+grd_sf1 <- apply(st_intersects(grd_sf, municipios),1,any)
+
+grd_sf1 <- grd_sf[grd_sf1,]
+
+colores <- c("#2A83BF", "#A2D7AB", "#FDF283", "#FDC173", "#EA5948", "#BC141A")
+
+
+min_corte = round(min(grd_sf1$predicted_precio), 3)
+max_corte = round(max(grd_sf1$predicted_precio), 3)
+
+# Crear cortes equiespaciados en la escala logarítmica
+breaks_mediana = round((seq((min_corte), (max_corte), length.out = 5)),3)
+
+p1 <- ggplot() +
+   geom_tile(data = grd_sf1, aes(x = st_coordinates(grd_sf1)[,1], 
+                                 y = st_coordinates(grd_sf1)[,2], 
+                                 fill = predicted_precio)) +
+   geom_sf(data = municipios, fill = NA, color = "black") +  # Mapa base de la región
+   scale_fill_gradientn(colors = colores,
+                        breaks = breaks_mediana,
+                        limits = c(min_corte, max_corte)) +  # Etiquetas personalizadas
+   labs(fill ="Logaritmo\ndel precio\ndel alquiler\n") +
+   theme_minimal() +
+   coord_sf()+ggspatial::annotation_scale(
+      location = "tl",
+      bar_cols = c("grey60", "white")
+   ) +
+   ggspatial::annotation_north_arrow(
+      location = "bl", which_north = "true",
+      pad_x = unit(0, "in"), pad_y = unit(0, "in"),
+      style = ggspatial::north_arrow_nautical(
+         fill = c("grey40", "white"),
+         line_col = "grey20"
+      )
+   )+
+   xlab("Longitud")+
+   ylab("Latitud")
+
+p1
+
+
 ```
 
-```{r, eval=FALSE}
-### Impactos
-for(k in 2:(length(SARAR$coefficients)-2)){
-   S_k = SARAR$coefficients[k]*IpWm1
-   SED = mean(diag(S_k))
-   SET = mean(colSums(S_k))
-   SEI = SET-SED
+```{r, echo=FALSE, eval=FALSE}
+modelo = gam(logprice~s(longitude,latitude,  k=400)+accommodates+minimum_nights+availability_365+
+                   number_of_reviews+license+Entire, data=pisos)
+
+# ---- Tabla de coeficientes paramétricos ----
+coefs <- summary(modelo)$p.table %>%
+  as.data.frame() %>%
+  rownames_to_column("Término") %>%
+  rename(
+    Estimación = Estimate,
+    `Error estándar` = `Std. Error`,
+    `Valor t` = `t value`,
+    `p-valor` = `Pr(>|t|)`
+  )
+
+# ---- Tabla de términos suavizados ----
+smooth <- summary(modelo)$s.table %>%
+  as.data.frame() %>%
+  rownames_to_column("Término") %>%
+  rename(
+    edf = edf,
+    `Ref.df` = `Ref.df`,
+    `Valor F` = F,
+    `p-valor` = `p-value`
+  )
+
+# ---- Mostrar ambas tablas por separado, una debajo de otra ----
+
+# Tabla 1: Coeficientes
+kable(coefs, format = "html", digits = 6, align = "c",
+      caption = "<div style='text-align:center; font-size:24px; color:black ;'>Coeficientes de regresión del modelo GAM</div>") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))
+
+# Tabla 2: Suavizado bidimensional
+kable(smooth, format = "html", digits = 3, align = "c",
+      caption = "<div style='text-align:center; font-size:24px; color:black ;'>Suavizado bidimensional espacial</div>") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))
+
+```
+
+
+
+
+
+
+
+
+## Gráfico comparación
+
+
+```{r, eval = FALSE}
+extract_model_info <- function(model) {
+  coefs <- summary(model)$Coef
+  data.frame(
+    Variable = rownames(coefs),
+    Estimate = round(coefs[, 1], 4),
+    Std.Error = round(coefs[, 2], 4),
+    P.value = round(coefs[, 4], 4)
+  )
 }
+
+sar <- extract_model_info(SAR) %>% rename_with(~ paste0("SAR_", .), -Variable)
+sem <- extract_model_info(SEM) %>% rename_with(~ paste0("SEM_", .), -Variable)
+sarar <- extract_model_info(SARAR) %>% rename_with(~ paste0("SARAR_", .), -Variable)
+
+
+final_table <- sarar %>%
+  left_join(sar, by = "Variable") %>%
+  left_join(sem, by = "Variable")
+
+final_table <- final_table %>%
+  mutate(Variable = ifelse(Variable == "rho", "TEMP_RHO", Variable),
+         Variable = ifelse(Variable == "lambda", "rho", Variable),
+         Variable = ifelse(Variable == "TEMP_RHO", "lambda", Variable))
+
+final_table %>%
+  kable("html", booktabs = TRUE, escape = FALSE,
+        col.names = c("Variable",
+                      rep(c("Est.", "SE", "p-val"), 3))) %>%
+  add_header_above(c(" " = 1, "SARAR" = 3, "SAR" = 3, "SEM" = 3)) %>%
+  kable_styling(full_width = FALSE, position = "center")  %>%
+  column_spec(4, border_right = "1px solid #CCCCCC") %>%  # después de SARAR
+  column_spec(7, border_right = "1px solid #CCCCCC") %>% 
+  column_spec(1, border_right = "1px solid #CCCCCC") %>% 
+  column_spec(10, border_right = "1px solid #CCCCCC") %>% 
+  column_spec(1, border_left = "1px solid #CCCCCC") %>% 
+  row_spec(9, extra_css = "border-bottom: 1px solid #CCCCCC;") %>% 
+  column_spec(2:7, extra_css = "text-align: center;")
+
 ```
+
+
+
+
+
+```{r, eval=FALSE}
+fmt <- function(x) formatC(x, format = "f", digits = 6)
+fmt2 <- function(x) formatC(x, format = "f", digits = 3)
+
+# Crear la tabla con los valores ya formateados
+tabla_comparativa <- data.frame(
+  Métrica = c("MSE", "MAPE", "R²", "R² ajustado", "QIC"),
+  SAR     = c(fmt(MSE_SAR), fmt(MAPE_SAR), fmt(R2_SAR), fmt(R2_adj_SAR), fmt2(QIC_SAR)),
+  SEM     = c(fmt(MSE_SEM), fmt(MAPE_SEM), fmt(R2_SEM), fmt(R2_adj_SEM), fmt2(QIC_SEM)),
+  SARAR   = c(fmt(MSE_SARAR), fmt(MAPE_SARAR), fmt(R2_SARAR), fmt(R2_adj_SARAR), fmt2(QIC_SARAR)),
+  GAM     = c(fmt(MSE_GAM), fmt(MAPE_GAM), fmt(R2_GAM), fmt(R2_adj_GAM), fmt2
+              (QIC_GAM))
+)
+
+# Mostrar la tabla con formato
+tabla_comparativa %>%
+  kbl(caption = "Comparación de modelos estadísticos",
+      align = "lcccc",
+      format = "html") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+
+```
+
+
+
+
+
+
+
+# Validacion cruzada 2.0
+
+```{r, eval = FALSE}
+library(sphet)
+library(Matrix)
+library(fastDummies)
+
+# Dummy para room_type
+a <- fastDummies::dummy_cols(pisos$room_type)
+pisos$Entire <- a[, 2]
+
+# Coordenadas
+puntos <- cbind(pisos$longitude, pisos$latitude)
+n <- nrow(pisos)
+
+# Rango de nbdist a evaluar (ajústalo según tu escala espacial)
+nbdist_vals <- seq(0.11, 0.12, by = 0.001)
+
+# Función para crear matriz de pesos normalizada
+crear_W <- function(puntos, nbdist) {
+  Dist <- dist(puntos)
+  W <- ifelse(as.matrix(Dist) < nbdist, 1, 0)
+  diag(W) <- 0
+  rtot <- rowSums(W)
+  rtot[rtot == 0] <- 0.1
+  W <- W / rtot
+  return(Matrix(W, sparse = TRUE))
+}
+
+# Función para calcular R² ajustado desde modelo sarar
+R2_ajustado <- function(modelo) {
+  y <- pisos$logprice
+  residuos = SARAR$residuals
+  SSE <- sum((residuos)^2)
+  SST <- sum((y - mean(y))^2)
+  n <- length(y)
+  p <- length(modelo$coefficients) + 1 # incluye betas, rho, lambda
+  R2_adj <- 1 - (SSE / (n - p)) / (SST / (n - 1))
+  return(R2_adj)
+}
+
+
+# Almacena resultados
+resultados <- data.frame(nbdist = nbdist_vals, R2_adj = NA)
+
+# Loop de validación cruzada
+for (i in seq_along(nbdist_vals)) {
+  cat("Probando nbdist =", nbdist_vals[i], "...\n")
+  WW <- crear_W(puntos, nbdist_vals[i])
+  
+  print("a")
+  
+  SARAR <- spreg(logprice~accommodates+minimum_nights+availability_365+
+                  number_of_reviews+license+Entire, data=pisos,
+               listw = WW, model="sarar", het=TRUE)
+  
+  print("b")
+  
+  
+  resultados$R2_adj[i] <- R2_ajustado(SARAR)
+  
+  print("c")
+  
+  gc(); gc()
+}
+
+# Mostrar resultados ordenados
+resultados_ordenados <- resultados[order(-resultados$R2_adj), ]
+print(resultados_ordenados)
+
+```
+
+
+
+
+
+
+
+
+
 
 
 

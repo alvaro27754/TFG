@@ -32,7 +32,7 @@ pisos = read_csv("datasets/listings.csv", show_col_types = FALSE)
 Por otro lado, el segundo dataset, que llamaremos 'municipios', contiene los datos de los municipios de España, incluyendo las fronteras entre los propios municipios.
 
 ```{r,echo =FALSE}
-municipios = read_sf("datasets/mapa_baleares/recintos_municipales_inspire_peninbal_etrs89.shp")
+municipios = read_sf("datasets/mapa_espana/recintos_municipales_inspire_peninbal_etrs89.shp")
 #municipios %>% glimpse()
 ```
 Antes de nada, haremos una selección de las variables que usaremos para nuestro trabajo. Del dataset pisos consideramos las siguientes variables:
@@ -88,14 +88,7 @@ pisos <- pisos %>%
    
    dplyr::mutate(logprice = log(price), .after = price) %>% 
    
-   dplyr::mutate(review_scores_rating = case_when(
-   is.na(review_scores_rating) ~ "No tienen reviews",
-   review_scores_rating < 4 ~ "Menos de 4 estrellas",
-    review_scores_rating >= 4 & review_scores_rating < 4.5 ~ "Entre 4 y 4.5 estrellas",
-    review_scores_rating >= 4.5 & review_scores_rating < 4.75 ~ "Entre 4.5 y 4.75 estrellas",
-    review_scores_rating >= 4.75 & review_scores_rating < 5 ~"Entre 4.75 y 5 estrellas",
-    review_scores_rating == 5 ~ "5 estrellas"
-  )) %>% dplyr::mutate(license = if_else(is.na(license), 0, 1))
+   dplyr::mutate(license = if_else(is.na(license), 0, 1))
 ```
 
 Como el dataset municipios, a efectos prácticos solo tiene una variable, fusionaremos los dos datasets en el dataset pisos, cogiendo las coordenadas de cada alojamiento y viendo en que municipio se encuentra. El resultado final es el siguiente.
@@ -190,7 +183,7 @@ Hablando de los precios, vemos que la densidad del logaritmo del precio según e
 ```{r, echo = FALSE}
 ggplot(pisos, aes(x = log(price))) +
   geom_density(fill = "skyblue") +
-  labs(title = "Densidad del logaritmo del precio",
+  labs(#title = "Densidad del logaritmo del precio",
        x = "Logaritmo del precio",
        y = "Densidad") +
   theme_minimal()
@@ -231,10 +224,19 @@ Pasando a hablar sobre el número de huéspedes, los histogramas de estas gráfi
 
 ```{r, echo = FALSE}
 # Histograma
-pisos %>%
-  ggplot(aes(x = accommodates)) +
+conteos <- pisos %>%
+  count(accommodates)
+
+# Crear el histograma con etiquetas
+ggplot(pisos, aes(x = accommodates)) +
   geom_histogram(binwidth = 1, fill = "skyblue", color = "black") +
-  labs(title = "Histograma del número de alojamientos", x = "Número de alojamientos", y = "Frecuencia")
+  geom_text(data = conteos,
+            aes(x = accommodates, y = n, label = n),
+            vjust = -0.5, size = 3) +  # size ajusta el tamaño del texto
+  labs(#title = "Histograma del número de alojamientos",
+       x = "Número máximo de huéspedes permitidos",
+       y = "Frecuencia") +
+  theme_minimal()
 ```
 
 Esto puede ser debido a que se piense en temas familiares, como tener un sitio donde alojar a tu pareja o a tu familia. Vemos que lo más común es que se acepten como máximo a 6 huéspedes, seguido de residencias donde se acepten hasta a 4 huéspedes. Aquí pueden vivir por ejemplo una pareja con uno o dos hijos.
@@ -322,7 +324,7 @@ resultado <- pisos %>%
 resultado %>% ggplot(aes(x = categoria, y = conteo)) +
   geom_bar(stat = "identity", fill = "skyblue", color = "black") +        # 'identity' para usar los valores en 'frecuencias'
   geom_text(aes(label = conteo), vjust = -0.3) +    # Añadir etiquetas sobre las barras
-  labs(title = "Distribución del Número Mínimo de Noches \n",
+  labs(#title = "Distribución del Número Mínimo de Noches \n",
        x = "Número de Noches",
        y = "Frecuencia") +
   theme_minimal() +                                      # Tema limpio y minimalista
@@ -351,7 +353,7 @@ plot_mallorca <- ggplot()+geom_sf(data=municipios, colour = "grey60")+
   geom_point(data=pisos %>% filter(!is.na(price)), mapping = aes(x=longitude, y=latitude,
                                         colour = price), size = 1)+
   coord_sf(xlim = c(2.3,3.5), ylim = c(39.2,40)) +
-  scale_color_gradientn(name="Precios \ndel alquiler", 
+  scale_color_gradientn(name="Precio del \nalquiler\n(€/noche)", 
                       trans = "log",
                       breaks = breaks_log,
                       colors = rev(plasma(5))) +
@@ -393,7 +395,7 @@ breaks_mediana = round((seq((min_corte), (max_corte), length.out = 5)),0)
 plot_mallorca <- ggplot()+
   geom_sf(data=municipios, colour = "#150000", aes(fill = (mediana_precio)))+
   coord_sf(xlim = c(2.3,3.5), ylim = c(39.2,40)) +
-  scale_fill_gradientn(name="Mediana \ndel precio", 
+  scale_fill_gradientn(name="Mediana del \nprecio del\nalquiler\n(€/noche)", 
                       #trans = "log",
                       colors = rev(magma(5)),
                       breaks = breaks_mediana) + #low="#FFEC7E", high="#4A0000"
@@ -440,10 +442,11 @@ rm(porcentaje_licencias)
 plot_licencias <- ggplot() +
   geom_sf(data = municipios, aes(fill = porcentaje_licencia), color = "#150000") +
   coord_sf(xlim = c(2.3, 3.5), ylim = c(39.2, 40)) +
-  scale_fill_gradientn(name = "Porcentaje \nde licencias",
+  scale_fill_gradientn(name = "Porcentaje \nde licencia",
                       limits = c(0, 100),  # Asegura la escala de 0 a 100%
                       labels = scales::percent_format(scale = 1),  # Formato de porcentaje
-                      colors = c("#ffe6ff","#fec6ff","#bfa1ff","#4036ff","#000033")
+                      colors = c("#ffe6ff","#fec6ff","#b1a9ff","#4036ff","#000033")
+                      #colors = c("#fde6f7","#e3b4d5","#a47dbf","#201B57","#000033")
                       ) + 
   xlab("Longitud") +
   ylab("Latitud") +

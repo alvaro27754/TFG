@@ -67,6 +67,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="trabajo_files/libs/bootstrap/bootstrap.min.js"></script>
 <link href="trabajo_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
 <link href="trabajo_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script src="trabajo_files/libs/kePrint-0.0.1/kePrint.js"></script>
+
+<link href="trabajo_files/libs/lightable-0.0.1/lightable.css" rel="stylesheet">
+
 
 
 </head>
@@ -96,16 +100,772 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
+<section id="inicio" class="level1">
+<h1>Inicio</h1>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>pisos <span class="ot">=</span> <span class="fu">read_csv</span>(<span class="st">"datasets/listings.csv"</span>, <span class="at">show_col_types =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>municipios <span class="ot">=</span> <span class="fu">read_sf</span>(<span class="st">"datasets/mapa_espana/recintos_municipales_inspire_peninbal_etrs89.shp"</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>municipios <span class="ot">&lt;-</span> municipios <span class="sc">%&gt;%</span> <span class="fu">filter</span>(CODNUT3<span class="sc">==</span><span class="st">"ES532"</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>pisos1 <span class="ot">&lt;-</span> <span class="fu">st_as_sf</span>(pisos, <span class="at">coords =</span> <span class="fu">c</span>(<span class="st">"longitude"</span>,<span class="st">"latitude"</span>), <span class="at">crs =</span> <span class="fu">st_crs</span>(municipios), <span class="at">agr =</span> <span class="st">"constant"</span>)</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>pisos <span class="ot">&lt;-</span> <span class="fu">st_join</span>(pisos1,municipios, <span class="at">join =</span> st_within) <span class="sc">%&gt;%</span> </span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>   <span class="fu">left_join</span>(pisos <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">select</span>(id, latitude, longitude), <span class="at">by=</span><span class="st">"id"</span>)</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(pisos1)</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>municipios <span class="ot">&lt;-</span> municipios <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">select</span>(NAMEUNIT)</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>pisos<span class="sc">$</span>price <span class="ot">&lt;-</span> <span class="fu">gsub</span>(<span class="st">"[</span><span class="sc">\\</span><span class="st">$, ]"</span>, <span class="st">""</span>, pisos<span class="sc">$</span>price) <span class="sc">%&gt;%</span> <span class="fu">as.numeric</span>()  <span class="co"># Quitar el símbolo $</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>pisos <span class="ot">&lt;-</span> pisos <span class="sc">%&gt;%</span> </span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>   dplyr<span class="sc">::</span><span class="fu">select</span>(id, room_type, accommodates, price, minimum_nights, </span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>                availability_365, number_of_reviews, </span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>                license, longitude, latitude, NAMEUNIT) <span class="sc">%&gt;%</span> </span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>   </span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>   dplyr<span class="sc">::</span><span class="fu">filter</span>(price<span class="sc">&lt;</span><span class="dv">5000</span>, <span class="sc">!</span><span class="fu">is.na</span>(NAMEUNIT), </span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>                 room_type <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"Entire home/apt"</span>, <span class="st">"Private room"</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>   </span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>   dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">logprice =</span> <span class="fu">log</span>(price), <span class="at">.after =</span> price) <span class="sc">%&gt;%</span> </span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>   dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">license =</span> <span class="fu">if_else</span>(<span class="fu">is.na</span>(license), <span class="dv">0</span>, <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>listings <span class="ot">=</span> <span class="fu">read_csv</span>(<span class="st">"datasets/listings.csv"</span>, <span class="at">show_col_types =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>listings_summary <span class="ot">=</span> <span class="fu">read_csv</span>(<span class="st">"datasets/listings_summary.csv"</span>, <span class="at">show_col_types =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>reviews <span class="ot">=</span> <span class="fu">read_csv</span>(<span class="st">"datasets/reviews.csv"</span>, <span class="at">show_col_types =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>reviews_summary <span class="ot">=</span> <span class="fu">read_csv</span>(<span class="st">"datasets/reviews_summary.csv"</span>, <span class="at">show_col_types =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>neighbourhoods <span class="ot">=</span> <span class="fu">read_csv</span>(<span class="st">"datasets/neighbourhoods.csv"</span>, <span class="at">show_col_types =</span> <span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>a<span class="ot">=</span>fastDummies<span class="sc">::</span><span class="fu">dummy_cols</span>(pisos<span class="sc">$</span>room_type)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>pisos<span class="sc">$</span>Entire<span class="ot">=</span>a[,<span class="dv">2</span>]</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="fu">dim</span>(pisos)[<span class="dv">1</span>]</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>OLS <span class="ot">=</span> <span class="fu">lm</span>(logprice<span class="sc">~</span>accommodates<span class="sc">+</span>minimum_nights<span class="sc">+</span>availability_365<span class="sc">+</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>                  number_of_reviews<span class="sc">+</span>license<span class="sc">+</span>Entire, <span class="at">data=</span>pisos)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>puntos<span class="ot">=</span><span class="fu">cbind</span>(pisos<span class="sc">$</span>longitude,pisos<span class="sc">$</span>latitude)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>          used  (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 2866337 153.1    5303701 283.3  5159285 275.6
+Vcells 5589576  42.7   22716312 173.4 28393768 216.7</code></pre>
 </div>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>          used  (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 2866676 153.1    5303701 283.3  5159285 275.6
+Vcells 5584146  42.7   22716312 173.4 28393768 216.7</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>nbdist <span class="ot">&lt;-</span> <span class="fl">0.0117</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>Dist <span class="ot">=</span> <span class="fu">dist</span>(puntos)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>WW <span class="ot">=</span> <span class="fu">ifelse</span>(<span class="fu">as.matrix</span>(Dist)<span class="sc">&lt;</span>nbdist, <span class="dv">1</span>, <span class="dv">0</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(Dist)</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>   </span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>WW <span class="ot">=</span> <span class="fu">Matrix</span>(WW, <span class="at">sparse =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="fu">diag</span>(WW) <span class="ot">=</span> <span class="dv">0</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>rtot <span class="ot">&lt;-</span> <span class="fu">rowSums</span>(WW, <span class="at">na.rm=</span><span class="cn">TRUE</span>)</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>rtot[rtot<span class="sc">==</span><span class="dv">0</span>] <span class="ot">=</span> <span class="fl">0.1</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>WW <span class="ot">=</span> WW<span class="sc">/</span>rtot</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>           used  (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells  2888381 154.3    5303701   283.3    5159285   275.6
+Vcells 10538900  80.5 1324689886 10106.6 1643540037 12539.3</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>           used  (Mb) gc trigger   (Mb)   max used    (Mb)
+Ncells  2888377 154.3    5303701  283.3    5159285   275.6
+Vcells 10538909  80.5 1059751909 8085.3 1643540037 12539.3</code></pre>
+</div>
+</div>
+<section id="sarar" class="level2">
+<h2 class="anchored" data-anchor-id="sarar">SARAR</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>SARAR <span class="ot">&lt;-</span> <span class="fu">spreg</span>(logprice<span class="sc">~</span>accommodates<span class="sc">+</span>minimum_nights<span class="sc">+</span>availability_365<span class="sc">+</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>                  number_of_reviews<span class="sc">+</span>license<span class="sc">+</span>Entire, <span class="at">data=</span>pisos,</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>               <span class="at">listw =</span> WW, <span class="at">model=</span><span class="st">"sarar"</span>, <span class="at">het=</span><span class="cn">TRUE</span>)</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(SARAR)</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>res <span class="ot">=</span> SARAR<span class="sc">$</span>residuals</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>resB <span class="ot">=</span> <span class="fu">as.vector</span>((<span class="fu">diag</span>(n)<span class="sc">-</span> SARAR<span class="sc">$</span>coefficients[<span class="dv">9</span>]<span class="sc">*</span>WW)<span class="sc">%*%</span><span class="fu">matrix</span>(res, <span class="at">ncol=</span><span class="dv">1</span>))</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>pisos<span class="sc">$</span>ResidualSARARHet <span class="ot">=</span> resB</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a><span class="co">#moran.test(resB, listw = mat2listw(WW), zero.policy = TRUE, alternative = "two.sided")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>###Resultados</p>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code>            used  (Mb) gc trigger   (Mb)   max used    (Mb)
+Ncells   2909350 155.4    5303701  283.3    5159285   275.6
+Vcells 101164665 771.9  847801528 6468.3 1643540037 12539.3</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>            used  (Mb) gc trigger   (Mb)   max used    (Mb)
+Ncells   2909337 155.4    5303701  283.3    5159285   275.6
+Vcells 101164659 771.9  678241223 5174.6 1643540037 12539.3</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>            used  (Mb) gc trigger   (Mb)   max used    (Mb)
+Ncells   2912730 155.6    5303701  283.3    5159285   275.6
+Vcells 101171879 771.9  542592979 4139.7 1643540037 12539.3</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 2
+[1] 1.176072 1.012945 1.191297
+[1] 3
+[1] 0.9956889 0.9996574 0.9953478
+[1] 4
+[1] 0.9999072 0.9999926 0.9998999
+[1] 5
+[1] 0.9991020 0.9999287 0.9990308
+[1] 6
+[1] 1.034852 1.002721 1.037667
+[1] 7
+[1] 1.141845 1.010576 1.153921</code></pre>
+</div>
+<div class="cell-output-display">
+<table class="table table-striped table-hover caption-top table-sm small" data-quarto-postprocess="true">
+<caption>Parámetros del modelo</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;" data-quarto-table-cell-role="th"></th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">Estimación</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">Error estándar</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">Valor t</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">p-valor</th>
+<th style="text-align: left;" data-quarto-table-cell-role="th">SE directa</th>
+<th style="text-align: left;" data-quarto-table-cell-role="th">SE indirecta</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">SE total</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">(Intercept)</td>
+<td style="text-align: right;">4.0200564</td>
+<td style="text-align: right;">0.0900282</td>
+<td style="text-align: right;">44.653300</td>
+<td style="text-align: right;">0.0000000</td>
+<td style="text-align: left;">NA</td>
+<td style="text-align: left;">NA</td>
+<td style="text-align: right;">NA</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">accommodates</td>
+<td style="text-align: right;">0.1621434</td>
+<td style="text-align: right;">0.0016705</td>
+<td style="text-align: right;">97.061592</td>
+<td style="text-align: right;">0.0000000</td>
+<td style="text-align: left;">1.176072</td>
+<td style="text-align: left;">1.0129455</td>
+<td style="text-align: right;">1.1912969</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">minimum_nights</td>
+<td style="text-align: right;">-0.0043194</td>
+<td style="text-align: right;">0.0004592</td>
+<td style="text-align: right;">-9.406364</td>
+<td style="text-align: right;">0.0000000</td>
+<td style="text-align: left;">0.9956889</td>
+<td style="text-align: left;">0.9996574</td>
+<td style="text-align: right;">0.9953478</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">availability_365</td>
+<td style="text-align: right;">-0.0000928</td>
+<td style="text-align: right;">0.0000329</td>
+<td style="text-align: right;">-2.817624</td>
+<td style="text-align: right;">0.0048380</td>
+<td style="text-align: left;">0.9999072</td>
+<td style="text-align: left;">0.9999926</td>
+<td style="text-align: right;">0.9998999</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">number_of_reviews</td>
+<td style="text-align: right;">-0.0008982</td>
+<td style="text-align: right;">0.0000829</td>
+<td style="text-align: right;">-10.837788</td>
+<td style="text-align: right;">0.0000000</td>
+<td style="text-align: left;">0.999102</td>
+<td style="text-align: left;">0.9999287</td>
+<td style="text-align: right;">0.9990308</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">license</td>
+<td style="text-align: right;">0.0342505</td>
+<td style="text-align: right;">0.0090042</td>
+<td style="text-align: right;">3.803828</td>
+<td style="text-align: right;">0.0001425</td>
+<td style="text-align: left;">1.0348519</td>
+<td style="text-align: left;">1.0027207</td>
+<td style="text-align: right;">1.0376674</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Entire</td>
+<td style="text-align: right;">0.1326153</td>
+<td style="text-align: right;">0.0170049</td>
+<td style="text-align: right;">7.798668</td>
+<td style="text-align: right;">0.0000000</td>
+<td style="text-align: left;">1.1418449</td>
+<td style="text-align: left;">1.0105755</td>
+<td style="text-align: right;">1.1539205</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">rho</td>
+<td style="text-align: right;">0.0738774</td>
+<td style="text-align: right;">0.0162848</td>
+<td style="text-align: right;">4.536591</td>
+<td style="text-align: right;">0.0000057</td>
+<td style="text-align: left;">NA</td>
+<td style="text-align: left;">NA</td>
+<td style="text-align: right;">NA</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">lambda</td>
+<td style="text-align: right;">0.5858182</td>
+<td style="text-align: right;">0.0162131</td>
+<td style="text-align: right;">36.132297</td>
+<td style="text-align: right;">0.0000000</td>
+<td style="text-align: left;">NA</td>
+<td style="text-align: left;">NA</td>
+<td style="text-align: right;">NA</td>
+</tr>
+</tbody>
+</table>
+
+
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Valores observados y predichos</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>y <span class="ot">&lt;-</span> pisos<span class="sc">$</span>logprice</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="co"># SSE y SST</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>SSE <span class="ot">&lt;-</span> <span class="fu">sum</span>(pisos<span class="sc">$</span>ResidualSARARHet<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>SST <span class="ot">&lt;-</span> <span class="fu">sum</span>((y <span class="sc">-</span> <span class="fu">mean</span>(y))<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>k <span class="ot">=</span> <span class="fu">length</span>(SARAR<span class="sc">$</span>coefficients)  <span class="co"># Incluye betas, rho, lambda</span></span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>MSE_SARAR <span class="ot">=</span> <span class="fu">mean</span>(pisos<span class="sc">$</span>ResidualSARARHet<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>MSE_SARAR</span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>MAPE_SARAR <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>((pisos<span class="sc">$</span>ResidualSARARHet) <span class="sc">/</span> y)) <span class="sc">*</span> <span class="dv">100</span></span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>MAPE_SARAR</span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a><span class="co"># R²</span></span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>R2_SARAR <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> SSE <span class="sc">/</span> SST</span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a>R2_SARAR</span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a><span class="co"># R² ajustado</span></span>
+<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a>R2_adj_SARAR <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> (SSE <span class="sc">/</span> (n <span class="sc">-</span> k)) <span class="sc">/</span> (SST <span class="sc">/</span> (n <span class="sc">-</span> <span class="dv">1</span>))</span>
+<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a>R2_adj_SARAR</span>
+<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a>A <span class="ot">=</span> <span class="fu">Diagonal</span>(n) <span class="sc">-</span> SARAR<span class="sc">$</span>coefficients[k<span class="dv">-1</span>]<span class="sc">*</span>WW</span>
+<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a>B <span class="ot">=</span> <span class="fu">Diagonal</span>(n) <span class="sc">-</span> SARAR<span class="sc">$</span>coefficients[k]<span class="sc">*</span>WW</span>
+<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a>sigma2 <span class="ot">=</span> <span class="fu">as.numeric</span>(SARAR<span class="sc">$</span>s2)</span>
+<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a>nu <span class="ot">=</span>(<span class="dv">1</span><span class="sc">/</span>(<span class="fu">sqrt</span>(sigma2)))<span class="sc">*</span>pisos<span class="sc">$</span>ResidualSARARHet</span>
+<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a>inL <span class="ot">=</span> <span class="sc">-</span>n<span class="sc">/</span><span class="dv">2</span><span class="sc">*</span><span class="fu">log</span>(<span class="dv">2</span><span class="sc">*</span>pi)<span class="sc">-</span><span class="fu">log</span>(sigma2) <span class="sc">+</span><span class="fu">log</span>(<span class="fu">det</span>(A))<span class="sc">+</span><span class="fu">log</span>(<span class="fu">det</span>(B))<span class="sc">-</span><span class="fl">0.5</span><span class="sc">*</span>(<span class="fu">t</span>(nu)<span class="sc">%*%</span>nu)</span>
+<span id="cb15-32"><a href="#cb15-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-33"><a href="#cb15-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-34"><a href="#cb15-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-35"><a href="#cb15-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-36"><a href="#cb15-36" aria-hidden="true" tabindex="-1"></a>QIC_SARAR <span class="ot">=</span><span class="sc">-</span><span class="dv">2</span><span class="sc">*</span>inL<span class="sc">+</span><span class="dv">2</span><span class="sc">*</span>k</span>
+<span id="cb15-37"><a href="#cb15-37" aria-hidden="true" tabindex="-1"></a>QIC_SARAR</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>##SAR</p>
+<p>##SEM</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>SEM <span class="ot">&lt;-</span> <span class="fu">spreg</span>(logprice<span class="sc">~</span>accommodates<span class="sc">+</span>minimum_nights<span class="sc">+</span>availability_365<span class="sc">+</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>                 number_of_reviews<span class="sc">+</span>license<span class="sc">+</span>Entire, <span class="at">data=</span>pisos,</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>                 <span class="at">listw =</span> WW, <span class="at">model=</span><span class="st">"error"</span>, <span class="at">het=</span><span class="cn">TRUE</span>)</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="fu">moran.test</span>(SEM<span class="sc">$</span>residuals, <span class="at">listw =</span> <span class="fu">mat2listw</span>(WW), <span class="at">zero.policy =</span> <span class="cn">TRUE</span>, <span class="at">alternative =</span> <span class="st">"two.sided"</span>)</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(SEM)</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>B <span class="ot">=</span> <span class="fu">Diagonal</span>(n) <span class="sc">-</span> SEM<span class="sc">$</span>coefficients[k]<span class="sc">*</span>WW</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>pisos<span class="sc">$</span>ResidualSEM <span class="ot">=</span> SEM<span class="sc">$</span>residuals</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>SSE <span class="ot">&lt;-</span> <span class="fu">sum</span>(pisos<span class="sc">$</span>ResidualSEM<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>k <span class="ot">=</span> <span class="fu">length</span>(SEM<span class="sc">$</span>coefficients)  <span class="co"># Incluye betas, rho, lambda</span></span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>MSE_SEM <span class="ot">=</span> <span class="fu">mean</span>(pisos<span class="sc">$</span>ResidualSEM<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>MSE_SEM</span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>MAPE_SEM <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>((pisos<span class="sc">$</span>ResidualSEM) <span class="sc">/</span> y)) <span class="sc">*</span> <span class="dv">100</span></span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>MAPE_SEM</span>
+<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a><span class="co"># R²</span></span>
+<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a>R2_SEM <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> SSE <span class="sc">/</span> SST</span>
+<span id="cb16-28"><a href="#cb16-28" aria-hidden="true" tabindex="-1"></a>R2_SEM</span>
+<span id="cb16-29"><a href="#cb16-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-30"><a href="#cb16-30" aria-hidden="true" tabindex="-1"></a><span class="co"># R² ajustado</span></span>
+<span id="cb16-31"><a href="#cb16-31" aria-hidden="true" tabindex="-1"></a>R2_adj_SEM <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> (SSE <span class="sc">/</span> (n <span class="sc">-</span> k)) <span class="sc">/</span> (SST <span class="sc">/</span> (n <span class="sc">-</span> <span class="dv">1</span>))</span>
+<span id="cb16-32"><a href="#cb16-32" aria-hidden="true" tabindex="-1"></a>R2_adj_SEM</span>
+<span id="cb16-33"><a href="#cb16-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-34"><a href="#cb16-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-35"><a href="#cb16-35" aria-hidden="true" tabindex="-1"></a>sigma2 <span class="ot">=</span> <span class="fu">as.numeric</span>(SAR<span class="sc">$</span>s2)</span>
+<span id="cb16-36"><a href="#cb16-36" aria-hidden="true" tabindex="-1"></a>nu <span class="ot">=</span>(<span class="dv">1</span><span class="sc">/</span>(<span class="fu">sqrt</span>(sigma2)))<span class="sc">*</span>pisos<span class="sc">$</span>ResidualSEM</span>
+<span id="cb16-37"><a href="#cb16-37" aria-hidden="true" tabindex="-1"></a>inL <span class="ot">=</span> <span class="sc">-</span>n<span class="sc">/</span><span class="dv">2</span><span class="sc">*</span><span class="fu">log</span>(<span class="dv">2</span><span class="sc">*</span>pi)<span class="sc">-</span><span class="fu">log</span>(sigma2) <span class="sc">+</span><span class="fu">log</span>(<span class="fu">det</span>(A))<span class="sc">-</span><span class="fl">0.5</span><span class="sc">*</span>(<span class="fu">t</span>(nu)<span class="sc">%*%</span>nu)</span>
+<span id="cb16-38"><a href="#cb16-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-39"><a href="#cb16-39" aria-hidden="true" tabindex="-1"></a>QIC_SEM <span class="ot">=</span><span class="sc">-</span><span class="dv">2</span><span class="sc">*</span>inL<span class="sc">+</span><span class="dv">2</span><span class="sc">*</span>k</span>
+<span id="cb16-40"><a href="#cb16-40" aria-hidden="true" tabindex="-1"></a>QIC_SEM</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>##GAM</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="do">#### GAM</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>modelo <span class="ot">=</span> <span class="fu">gam</span>(logprice<span class="sc">~</span><span class="fu">s</span>(longitude,latitude,  <span class="at">k=</span><span class="dv">400</span>)<span class="sc">+</span>accommodates<span class="sc">+</span>minimum_nights<span class="sc">+</span>availability_365<span class="sc">+</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>                   number_of_reviews<span class="sc">+</span>license<span class="sc">+</span>Entire, <span class="at">data=</span>pisos)</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(modelo)</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(modelo)</span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Dibujar usando el sistema base</span></span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a><span class="fu">vis.gam</span>(modelo,</span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>        <span class="at">view =</span> <span class="fu">c</span>(<span class="st">"longitude"</span>, <span class="st">"latitude"</span>),</span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>        <span class="at">type =</span> <span class="st">"response"</span>,</span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>        <span class="at">ticktype =</span> <span class="st">"detailed"</span>,</span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>        <span class="at">theta =</span> <span class="dv">120</span>,</span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a>        <span class="at">phi =</span> <span class="dv">30</span>,</span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a>        <span class="at">cex.axis =</span> <span class="fl">1.75</span>,</span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a>        <span class="at">cex.lab =</span> <span class="fl">1.75</span>)</span>
+<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-24"><a href="#cb17-24" aria-hidden="true" tabindex="-1"></a><span class="fu">qq.gam</span>(modelo,<span class="at">rep=</span><span class="dv">100</span>,<span class="at">level=</span><span class="fl">0.99</span>,<span class="at">pch=</span><span class="dv">19</span>,<span class="at">cex=</span>.<span class="dv">2</span>)</span>
+<span id="cb17-25"><a href="#cb17-25" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow=</span><span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">2</span>))</span>
+<span id="cb17-26"><a href="#cb17-26" aria-hidden="true" tabindex="-1"></a><span class="fu">gam.check</span>(modelo)</span>
+<span id="cb17-27"><a href="#cb17-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-28"><a href="#cb17-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-29"><a href="#cb17-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-30"><a href="#cb17-30" aria-hidden="true" tabindex="-1"></a>pisos<span class="sc">$</span>ResidualGAM <span class="ot">=</span> modelo<span class="sc">$</span>residuals</span>
+<span id="cb17-31"><a href="#cb17-31" aria-hidden="true" tabindex="-1"></a>p <span class="ot">&lt;-</span> <span class="fu">sum</span>(modelo<span class="sc">$</span>edf)</span>
+<span id="cb17-32"><a href="#cb17-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-33"><a href="#cb17-33" aria-hidden="true" tabindex="-1"></a>MSE_GAM <span class="ot">=</span> <span class="fu">mean</span>(pisos<span class="sc">$</span>ResidualGAM<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb17-34"><a href="#cb17-34" aria-hidden="true" tabindex="-1"></a>MSE_GAM</span>
+<span id="cb17-35"><a href="#cb17-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-36"><a href="#cb17-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-37"><a href="#cb17-37" aria-hidden="true" tabindex="-1"></a>MAPE_GAM <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>((pisos<span class="sc">$</span>ResidualGAM) <span class="sc">/</span> y)) <span class="sc">*</span> <span class="dv">100</span></span>
+<span id="cb17-38"><a href="#cb17-38" aria-hidden="true" tabindex="-1"></a>MAPE_GAM</span>
+<span id="cb17-39"><a href="#cb17-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-40"><a href="#cb17-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-41"><a href="#cb17-41" aria-hidden="true" tabindex="-1"></a>rss <span class="ot">&lt;-</span> <span class="fu">sum</span>(pisos<span class="sc">$</span>ResidualGAM<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb17-42"><a href="#cb17-42" aria-hidden="true" tabindex="-1"></a>tss <span class="ot">&lt;-</span> <span class="fu">sum</span>((modelo<span class="sc">$</span>y <span class="sc">-</span> <span class="fu">mean</span>(modelo<span class="sc">$</span>y))<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb17-43"><a href="#cb17-43" aria-hidden="true" tabindex="-1"></a>R2_GAM <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> rss <span class="sc">/</span> tss</span>
+<span id="cb17-44"><a href="#cb17-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-45"><a href="#cb17-45" aria-hidden="true" tabindex="-1"></a><span class="co"># R2 ajustado</span></span>
+<span id="cb17-46"><a href="#cb17-46" aria-hidden="true" tabindex="-1"></a>R2_adj_GAM <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> ((<span class="dv">1</span> <span class="sc">-</span> R2_GAM) <span class="sc">*</span> (n <span class="sc">-</span> <span class="dv">1</span>)) <span class="sc">/</span> (n <span class="sc">-</span> p <span class="sc">-</span> <span class="dv">1</span>)</span>
+<span id="cb17-47"><a href="#cb17-47" aria-hidden="true" tabindex="-1"></a>R2_adj_GAM</span>
+<span id="cb17-48"><a href="#cb17-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-49"><a href="#cb17-49" aria-hidden="true" tabindex="-1"></a>QIC_GAM <span class="ot">=</span> modelo<span class="sc">$</span>aic</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>df_sf <span class="ot">&lt;-</span> <span class="fu">st_as_sf</span>(pisos, <span class="at">coords =</span> <span class="fu">c</span>(<span class="st">"longitude"</span>,<span class="st">"latitude"</span>), <span class="at">crs =</span> <span class="fu">st_crs</span>(municipios))</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>bbox <span class="ot">&lt;-</span> <span class="fu">st_bbox</span>(df_sf)  <span class="co"># Limites del dataframe original de puntos</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>grd <span class="ot">&lt;-</span> <span class="fu">expand.grid</span>(<span class="at">longitude=</span> <span class="fu">seq</span>(bbox[<span class="st">"xmin"</span>], bbox[<span class="st">"xmax"</span>], <span class="at">by =</span> <span class="fl">0.001</span>),</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>                    <span class="at">latitude =</span> <span class="fu">seq</span>(bbox[<span class="st">"ymin"</span>], bbox[<span class="st">"ymax"</span>], <span class="at">by =</span> <span class="fl">0.001</span>))</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Convertir el grid a un objeto sf</span></span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>grd_sf <span class="ot">&lt;-</span> <span class="fu">st_as_sf</span>(grd, <span class="at">coords =</span> <span class="fu">c</span>(<span class="st">"longitude"</span>,<span class="st">"latitude"</span>), <span class="at">crs =</span> <span class="fu">st_crs</span>(municipios))</span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Suponiendo que tienes un modelo GAM llamado "modelo_gam"</span></span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a>grd_sf <span class="ot">&lt;-</span> grd_sf <span class="sc">%&gt;%</span> </span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a>   <span class="fu">mutate</span>(<span class="at">accommodates=</span><span class="dv">1</span>,</span>
+<span id="cb18-22"><a href="#cb18-22" aria-hidden="true" tabindex="-1"></a>          <span class="at">minimum_nights=</span><span class="dv">1</span>,</span>
+<span id="cb18-23"><a href="#cb18-23" aria-hidden="true" tabindex="-1"></a>          <span class="at">availability_365 =</span><span class="fu">median</span>(pisos<span class="sc">$</span>availability_365),</span>
+<span id="cb18-24"><a href="#cb18-24" aria-hidden="true" tabindex="-1"></a>          <span class="at">number_of_reviews =</span><span class="fu">median</span>(pisos<span class="sc">$</span>number_of_reviews),</span>
+<span id="cb18-25"><a href="#cb18-25" aria-hidden="true" tabindex="-1"></a>          <span class="at">license=</span><span class="dv">0</span>,</span>
+<span id="cb18-26"><a href="#cb18-26" aria-hidden="true" tabindex="-1"></a>          <span class="at">Entire=</span><span class="dv">0</span>,</span>
+<span id="cb18-27"><a href="#cb18-27" aria-hidden="true" tabindex="-1"></a>          <span class="at">longitude=</span><span class="fu">st_coordinates</span>(grd_sf)[,<span class="dv">1</span>],</span>
+<span id="cb18-28"><a href="#cb18-28" aria-hidden="true" tabindex="-1"></a>          <span class="at">latitude=</span><span class="fu">st_coordinates</span>(grd_sf)[,<span class="dv">2</span>])</span>
+<span id="cb18-29"><a href="#cb18-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-30"><a href="#cb18-30" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span>
+<span id="cb18-31"><a href="#cb18-31" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span>
+<span id="cb18-32"><a href="#cb18-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-33"><a href="#cb18-33" aria-hidden="true" tabindex="-1"></a><span class="do">### Muy demorado</span></span>
+<span id="cb18-34"><a href="#cb18-34" aria-hidden="true" tabindex="-1"></a><span class="do">## Tomate un café</span></span>
+<span id="cb18-35"><a href="#cb18-35" aria-hidden="true" tabindex="-1"></a>grd_sf<span class="sc">$</span>predicted_precio <span class="ot">&lt;-</span> <span class="fu">predict</span>(modelo, <span class="at">newdata =</span> grd_sf, <span class="at">type =</span> <span class="st">"response"</span>)</span>
+<span id="cb18-36"><a href="#cb18-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-37"><a href="#cb18-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-38"><a href="#cb18-38" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span>
+<span id="cb18-39"><a href="#cb18-39" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span>
+<span id="cb18-40"><a href="#cb18-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-41"><a href="#cb18-41" aria-hidden="true" tabindex="-1"></a>grd_sf1 <span class="ot">&lt;-</span> <span class="fu">apply</span>(<span class="fu">st_intersects</span>(grd_sf, municipios),<span class="dv">1</span>,any)</span>
+<span id="cb18-42"><a href="#cb18-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-43"><a href="#cb18-43" aria-hidden="true" tabindex="-1"></a>grd_sf1 <span class="ot">&lt;-</span> grd_sf[grd_sf1,]</span>
+<span id="cb18-44"><a href="#cb18-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-45"><a href="#cb18-45" aria-hidden="true" tabindex="-1"></a>colores <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"#2A83BF"</span>, <span class="st">"#A2D7AB"</span>, <span class="st">"#FDF283"</span>, <span class="st">"#FDC173"</span>, <span class="st">"#EA5948"</span>, <span class="st">"#BC141A"</span>)</span>
+<span id="cb18-46"><a href="#cb18-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-47"><a href="#cb18-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-48"><a href="#cb18-48" aria-hidden="true" tabindex="-1"></a>min_corte <span class="ot">=</span> <span class="fu">round</span>(<span class="fu">min</span>(grd_sf1<span class="sc">$</span>predicted_precio), <span class="dv">3</span>)</span>
+<span id="cb18-49"><a href="#cb18-49" aria-hidden="true" tabindex="-1"></a>max_corte <span class="ot">=</span> <span class="fu">round</span>(<span class="fu">max</span>(grd_sf1<span class="sc">$</span>predicted_precio), <span class="dv">3</span>)</span>
+<span id="cb18-50"><a href="#cb18-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-51"><a href="#cb18-51" aria-hidden="true" tabindex="-1"></a><span class="co"># Crear cortes equiespaciados en la escala logarítmica</span></span>
+<span id="cb18-52"><a href="#cb18-52" aria-hidden="true" tabindex="-1"></a>breaks_mediana <span class="ot">=</span> <span class="fu">round</span>((<span class="fu">seq</span>((min_corte), (max_corte), <span class="at">length.out =</span> <span class="dv">5</span>)),<span class="dv">3</span>)</span>
+<span id="cb18-53"><a href="#cb18-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-54"><a href="#cb18-54" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>() <span class="sc">+</span></span>
+<span id="cb18-55"><a href="#cb18-55" aria-hidden="true" tabindex="-1"></a>   <span class="fu">geom_tile</span>(<span class="at">data =</span> grd_sf1, <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">st_coordinates</span>(grd_sf1)[,<span class="dv">1</span>], </span>
+<span id="cb18-56"><a href="#cb18-56" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">y =</span> <span class="fu">st_coordinates</span>(grd_sf1)[,<span class="dv">2</span>], </span>
+<span id="cb18-57"><a href="#cb18-57" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">fill =</span> predicted_precio)) <span class="sc">+</span></span>
+<span id="cb18-58"><a href="#cb18-58" aria-hidden="true" tabindex="-1"></a>   <span class="fu">geom_sf</span>(<span class="at">data =</span> municipios, <span class="at">fill =</span> <span class="cn">NA</span>, <span class="at">color =</span> <span class="st">"black"</span>) <span class="sc">+</span>  <span class="co"># Mapa base de la región</span></span>
+<span id="cb18-59"><a href="#cb18-59" aria-hidden="true" tabindex="-1"></a>   <span class="fu">scale_fill_gradientn</span>(<span class="at">colors =</span> colores,</span>
+<span id="cb18-60"><a href="#cb18-60" aria-hidden="true" tabindex="-1"></a>                        <span class="at">breaks =</span> breaks_mediana,</span>
+<span id="cb18-61"><a href="#cb18-61" aria-hidden="true" tabindex="-1"></a>                        <span class="at">limits =</span> <span class="fu">c</span>(min_corte, max_corte)) <span class="sc">+</span>  <span class="co"># Etiquetas personalizadas</span></span>
+<span id="cb18-62"><a href="#cb18-62" aria-hidden="true" tabindex="-1"></a>   <span class="fu">labs</span>(<span class="at">fill =</span><span class="st">"Logaritmo</span><span class="sc">\n</span><span class="st">del precio</span><span class="sc">\n</span><span class="st">del alquiler</span><span class="sc">\n</span><span class="st">"</span>) <span class="sc">+</span></span>
+<span id="cb18-63"><a href="#cb18-63" aria-hidden="true" tabindex="-1"></a>   <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb18-64"><a href="#cb18-64" aria-hidden="true" tabindex="-1"></a>   <span class="fu">coord_sf</span>()<span class="sc">+</span>ggspatial<span class="sc">::</span><span class="fu">annotation_scale</span>(</span>
+<span id="cb18-65"><a href="#cb18-65" aria-hidden="true" tabindex="-1"></a>      <span class="at">location =</span> <span class="st">"tl"</span>,</span>
+<span id="cb18-66"><a href="#cb18-66" aria-hidden="true" tabindex="-1"></a>      <span class="at">bar_cols =</span> <span class="fu">c</span>(<span class="st">"grey60"</span>, <span class="st">"white"</span>)</span>
+<span id="cb18-67"><a href="#cb18-67" aria-hidden="true" tabindex="-1"></a>   ) <span class="sc">+</span></span>
+<span id="cb18-68"><a href="#cb18-68" aria-hidden="true" tabindex="-1"></a>   ggspatial<span class="sc">::</span><span class="fu">annotation_north_arrow</span>(</span>
+<span id="cb18-69"><a href="#cb18-69" aria-hidden="true" tabindex="-1"></a>      <span class="at">location =</span> <span class="st">"bl"</span>, <span class="at">which_north =</span> <span class="st">"true"</span>,</span>
+<span id="cb18-70"><a href="#cb18-70" aria-hidden="true" tabindex="-1"></a>      <span class="at">pad_x =</span> <span class="fu">unit</span>(<span class="dv">0</span>, <span class="st">"in"</span>), <span class="at">pad_y =</span> <span class="fu">unit</span>(<span class="dv">0</span>, <span class="st">"in"</span>),</span>
+<span id="cb18-71"><a href="#cb18-71" aria-hidden="true" tabindex="-1"></a>      <span class="at">style =</span> ggspatial<span class="sc">::</span><span class="fu">north_arrow_nautical</span>(</span>
+<span id="cb18-72"><a href="#cb18-72" aria-hidden="true" tabindex="-1"></a>         <span class="at">fill =</span> <span class="fu">c</span>(<span class="st">"grey40"</span>, <span class="st">"white"</span>),</span>
+<span id="cb18-73"><a href="#cb18-73" aria-hidden="true" tabindex="-1"></a>         <span class="at">line_col =</span> <span class="st">"grey20"</span></span>
+<span id="cb18-74"><a href="#cb18-74" aria-hidden="true" tabindex="-1"></a>      )</span>
+<span id="cb18-75"><a href="#cb18-75" aria-hidden="true" tabindex="-1"></a>   )<span class="sc">+</span></span>
+<span id="cb18-76"><a href="#cb18-76" aria-hidden="true" tabindex="-1"></a>   <span class="fu">xlab</span>(<span class="st">"Longitud"</span>)<span class="sc">+</span></span>
+<span id="cb18-77"><a href="#cb18-77" aria-hidden="true" tabindex="-1"></a>   <span class="fu">ylab</span>(<span class="st">"Latitud"</span>)</span>
+<span id="cb18-78"><a href="#cb18-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-79"><a href="#cb18-79" aria-hidden="true" tabindex="-1"></a>p1</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="gráfico-comparación" class="level2">
+<h2 class="anchored" data-anchor-id="gráfico-comparación">Gráfico comparación</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>extract_model_info <span class="ot">&lt;-</span> <span class="cf">function</span>(model) {</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>  coefs <span class="ot">&lt;-</span> <span class="fu">summary</span>(model)<span class="sc">$</span>Coef</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>(</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">Variable =</span> <span class="fu">rownames</span>(coefs),</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">Estimate =</span> <span class="fu">round</span>(coefs[, <span class="dv">1</span>], <span class="dv">4</span>),</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">Std.Error =</span> <span class="fu">round</span>(coefs[, <span class="dv">2</span>], <span class="dv">4</span>),</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">P.value =</span> <span class="fu">round</span>(coefs[, <span class="dv">4</span>], <span class="dv">4</span>)</span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>sar <span class="ot">&lt;-</span> <span class="fu">extract_model_info</span>(SAR) <span class="sc">%&gt;%</span> <span class="fu">rename_with</span>(<span class="sc">~</span> <span class="fu">paste0</span>(<span class="st">"SAR_"</span>, .), <span class="sc">-</span>Variable)</span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>sem <span class="ot">&lt;-</span> <span class="fu">extract_model_info</span>(SEM) <span class="sc">%&gt;%</span> <span class="fu">rename_with</span>(<span class="sc">~</span> <span class="fu">paste0</span>(<span class="st">"SEM_"</span>, .), <span class="sc">-</span>Variable)</span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>sarar <span class="ot">&lt;-</span> <span class="fu">extract_model_info</span>(SARAR) <span class="sc">%&gt;%</span> <span class="fu">rename_with</span>(<span class="sc">~</span> <span class="fu">paste0</span>(<span class="st">"SARAR_"</span>, .), <span class="sc">-</span>Variable)</span>
+<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-15"><a href="#cb19-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-16"><a href="#cb19-16" aria-hidden="true" tabindex="-1"></a>final_table <span class="ot">&lt;-</span> sarar <span class="sc">%&gt;%</span></span>
+<span id="cb19-17"><a href="#cb19-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(sar, <span class="at">by =</span> <span class="st">"Variable"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb19-18"><a href="#cb19-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(sem, <span class="at">by =</span> <span class="st">"Variable"</span>)</span>
+<span id="cb19-19"><a href="#cb19-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-20"><a href="#cb19-20" aria-hidden="true" tabindex="-1"></a>final_table <span class="ot">&lt;-</span> final_table <span class="sc">%&gt;%</span></span>
+<span id="cb19-21"><a href="#cb19-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Variable =</span> <span class="fu">ifelse</span>(Variable <span class="sc">==</span> <span class="st">"rho"</span>, <span class="st">"TEMP_RHO"</span>, Variable),</span>
+<span id="cb19-22"><a href="#cb19-22" aria-hidden="true" tabindex="-1"></a>         <span class="at">Variable =</span> <span class="fu">ifelse</span>(Variable <span class="sc">==</span> <span class="st">"lambda"</span>, <span class="st">"rho"</span>, Variable),</span>
+<span id="cb19-23"><a href="#cb19-23" aria-hidden="true" tabindex="-1"></a>         <span class="at">Variable =</span> <span class="fu">ifelse</span>(Variable <span class="sc">==</span> <span class="st">"TEMP_RHO"</span>, <span class="st">"lambda"</span>, Variable))</span>
+<span id="cb19-24"><a href="#cb19-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-25"><a href="#cb19-25" aria-hidden="true" tabindex="-1"></a>final_table <span class="sc">%&gt;%</span></span>
+<span id="cb19-26"><a href="#cb19-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>(<span class="st">"html"</span>, <span class="at">booktabs =</span> <span class="cn">TRUE</span>, <span class="at">escape =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb19-27"><a href="#cb19-27" aria-hidden="true" tabindex="-1"></a>        <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">"Variable"</span>,</span>
+<span id="cb19-28"><a href="#cb19-28" aria-hidden="true" tabindex="-1"></a>                      <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">"Est."</span>, <span class="st">"SE"</span>, <span class="st">"p-val"</span>), <span class="dv">3</span>))) <span class="sc">%&gt;%</span></span>
+<span id="cb19-29"><a href="#cb19-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">add_header_above</span>(<span class="fu">c</span>(<span class="st">" "</span> <span class="ot">=</span> <span class="dv">1</span>, <span class="st">"SARAR"</span> <span class="ot">=</span> <span class="dv">3</span>, <span class="st">"SAR"</span> <span class="ot">=</span> <span class="dv">3</span>, <span class="st">"SEM"</span> <span class="ot">=</span> <span class="dv">3</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb19-30"><a href="#cb19-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable_styling</span>(<span class="at">full_width =</span> <span class="cn">FALSE</span>, <span class="at">position =</span> <span class="st">"center"</span>)  <span class="sc">%&gt;%</span></span>
+<span id="cb19-31"><a href="#cb19-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">column_spec</span>(<span class="dv">4</span>, <span class="at">border_right =</span> <span class="st">"1px solid #CCCCCC"</span>) <span class="sc">%&gt;%</span>  <span class="co"># después de SARAR</span></span>
+<span id="cb19-32"><a href="#cb19-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">column_spec</span>(<span class="dv">7</span>, <span class="at">border_right =</span> <span class="st">"1px solid #CCCCCC"</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb19-33"><a href="#cb19-33" aria-hidden="true" tabindex="-1"></a>  <span class="fu">column_spec</span>(<span class="dv">1</span>, <span class="at">border_right =</span> <span class="st">"1px solid #CCCCCC"</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb19-34"><a href="#cb19-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">column_spec</span>(<span class="dv">10</span>, <span class="at">border_right =</span> <span class="st">"1px solid #CCCCCC"</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb19-35"><a href="#cb19-35" aria-hidden="true" tabindex="-1"></a>  <span class="fu">column_spec</span>(<span class="dv">1</span>, <span class="at">border_left =</span> <span class="st">"1px solid #CCCCCC"</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb19-36"><a href="#cb19-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">row_spec</span>(<span class="dv">9</span>, <span class="at">extra_css =</span> <span class="st">"border-bottom: 1px solid #CCCCCC;"</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb19-37"><a href="#cb19-37" aria-hidden="true" tabindex="-1"></a>  <span class="fu">column_spec</span>(<span class="dv">2</span><span class="sc">:</span><span class="dv">7</span>, <span class="at">extra_css =</span> <span class="st">"text-align: center;"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>fmt <span class="ot">&lt;-</span> <span class="cf">function</span>(x) <span class="fu">formatC</span>(x, <span class="at">format =</span> <span class="st">"f"</span>, <span class="at">digits =</span> <span class="dv">6</span>)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>fmt2 <span class="ot">&lt;-</span> <span class="cf">function</span>(x) <span class="fu">formatC</span>(x, <span class="at">format =</span> <span class="st">"f"</span>, <span class="at">digits =</span> <span class="dv">3</span>)</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Crear la tabla con los valores ya formateados</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>tabla_comparativa <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>  Métrica <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"MSE"</span>, <span class="st">"MAPE"</span>, <span class="st">"R²"</span>, <span class="st">"R² ajustado"</span>, <span class="st">"QIC"</span>),</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">SAR     =</span> <span class="fu">c</span>(<span class="fu">fmt</span>(MSE_SAR), <span class="fu">fmt</span>(MAPE_SAR), <span class="fu">fmt</span>(R2_SAR), <span class="fu">fmt</span>(R2_adj_SAR), <span class="fu">fmt2</span>(QIC_SAR)),</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">SEM     =</span> <span class="fu">c</span>(<span class="fu">fmt</span>(MSE_SEM), <span class="fu">fmt</span>(MAPE_SEM), <span class="fu">fmt</span>(R2_SEM), <span class="fu">fmt</span>(R2_adj_SEM), <span class="fu">fmt2</span>(QIC_SEM)),</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">SARAR   =</span> <span class="fu">c</span>(<span class="fu">fmt</span>(MSE_SARAR), <span class="fu">fmt</span>(MAPE_SARAR), <span class="fu">fmt</span>(R2_SARAR), <span class="fu">fmt</span>(R2_adj_SARAR), <span class="fu">fmt2</span>(QIC_SARAR)),</span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">GAM     =</span> <span class="fu">c</span>(<span class="fu">fmt</span>(MSE_GAM), <span class="fu">fmt</span>(MAPE_GAM), <span class="fu">fmt</span>(R2_GAM), <span class="fu">fmt</span>(R2_adj_GAM), fmt2</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>              (QIC_GAM))</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Mostrar la tabla con formato</span></span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>tabla_comparativa <span class="sc">%&gt;%</span></span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kbl</span>(<span class="at">caption =</span> <span class="st">"Comparación de modelos estadísticos"</span>,</span>
+<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a>      <span class="at">align =</span> <span class="st">"lcccc"</span>,</span>
+<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a>      <span class="at">format =</span> <span class="st">"html"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable_styling</span>(<span class="at">full_width =</span> <span class="cn">FALSE</span>, <span class="at">bootstrap_options =</span> <span class="fu">c</span>(<span class="st">"striped"</span>, <span class="st">"hover"</span>, <span class="st">"condensed"</span>, <span class="st">"responsive"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+</section>
+<section id="validacion-cruzada-2.0" class="level1">
+<h1>Validacion cruzada 2.0</h1>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(sphet)</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(Matrix)</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(fastDummies)</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Dummy para room_type</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>a <span class="ot">&lt;-</span> fastDummies<span class="sc">::</span><span class="fu">dummy_cols</span>(pisos<span class="sc">$</span>room_type)</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>pisos<span class="sc">$</span>Entire <span class="ot">&lt;-</span> a[, <span class="dv">2</span>]</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Coordenadas</span></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>puntos <span class="ot">&lt;-</span> <span class="fu">cbind</span>(pisos<span class="sc">$</span>longitude, pisos<span class="sc">$</span>latitude)</span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="fu">nrow</span>(pisos)</span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Rango de nbdist a evaluar (ajústalo según tu escala espacial)</span></span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>nbdist_vals <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fl">0.11</span>, <span class="fl">0.12</span>, <span class="at">by =</span> <span class="fl">0.001</span>)</span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Función para crear matriz de pesos normalizada</span></span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>crear_W <span class="ot">&lt;-</span> <span class="cf">function</span>(puntos, nbdist) {</span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a>  Dist <span class="ot">&lt;-</span> <span class="fu">dist</span>(puntos)</span>
+<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a>  W <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(<span class="fu">as.matrix</span>(Dist) <span class="sc">&lt;</span> nbdist, <span class="dv">1</span>, <span class="dv">0</span>)</span>
+<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">diag</span>(W) <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a>  rtot <span class="ot">&lt;-</span> <span class="fu">rowSums</span>(W)</span>
+<span id="cb21-22"><a href="#cb21-22" aria-hidden="true" tabindex="-1"></a>  rtot[rtot <span class="sc">==</span> <span class="dv">0</span>] <span class="ot">&lt;-</span> <span class="fl">0.1</span></span>
+<span id="cb21-23"><a href="#cb21-23" aria-hidden="true" tabindex="-1"></a>  W <span class="ot">&lt;-</span> W <span class="sc">/</span> rtot</span>
+<span id="cb21-24"><a href="#cb21-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">Matrix</span>(W, <span class="at">sparse =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb21-25"><a href="#cb21-25" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb21-26"><a href="#cb21-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-27"><a href="#cb21-27" aria-hidden="true" tabindex="-1"></a><span class="co"># Función para calcular R² ajustado desde modelo sarar</span></span>
+<span id="cb21-28"><a href="#cb21-28" aria-hidden="true" tabindex="-1"></a>R2_ajustado <span class="ot">&lt;-</span> <span class="cf">function</span>(modelo) {</span>
+<span id="cb21-29"><a href="#cb21-29" aria-hidden="true" tabindex="-1"></a>  y <span class="ot">&lt;-</span> pisos<span class="sc">$</span>logprice</span>
+<span id="cb21-30"><a href="#cb21-30" aria-hidden="true" tabindex="-1"></a>  residuos <span class="ot">=</span> SARAR<span class="sc">$</span>residuals</span>
+<span id="cb21-31"><a href="#cb21-31" aria-hidden="true" tabindex="-1"></a>  SSE <span class="ot">&lt;-</span> <span class="fu">sum</span>((residuos)<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb21-32"><a href="#cb21-32" aria-hidden="true" tabindex="-1"></a>  SST <span class="ot">&lt;-</span> <span class="fu">sum</span>((y <span class="sc">-</span> <span class="fu">mean</span>(y))<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb21-33"><a href="#cb21-33" aria-hidden="true" tabindex="-1"></a>  n <span class="ot">&lt;-</span> <span class="fu">length</span>(y)</span>
+<span id="cb21-34"><a href="#cb21-34" aria-hidden="true" tabindex="-1"></a>  p <span class="ot">&lt;-</span> <span class="fu">length</span>(modelo<span class="sc">$</span>coefficients) <span class="sc">+</span> <span class="dv">1</span> <span class="co"># incluye betas, rho, lambda</span></span>
+<span id="cb21-35"><a href="#cb21-35" aria-hidden="true" tabindex="-1"></a>  R2_adj <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> (SSE <span class="sc">/</span> (n <span class="sc">-</span> p)) <span class="sc">/</span> (SST <span class="sc">/</span> (n <span class="sc">-</span> <span class="dv">1</span>))</span>
+<span id="cb21-36"><a href="#cb21-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(R2_adj)</span>
+<span id="cb21-37"><a href="#cb21-37" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb21-38"><a href="#cb21-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-39"><a href="#cb21-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-40"><a href="#cb21-40" aria-hidden="true" tabindex="-1"></a><span class="co"># Almacena resultados</span></span>
+<span id="cb21-41"><a href="#cb21-41" aria-hidden="true" tabindex="-1"></a>resultados <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">nbdist =</span> nbdist_vals, <span class="at">R2_adj =</span> <span class="cn">NA</span>)</span>
+<span id="cb21-42"><a href="#cb21-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-43"><a href="#cb21-43" aria-hidden="true" tabindex="-1"></a><span class="co"># Loop de validación cruzada</span></span>
+<span id="cb21-44"><a href="#cb21-44" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_along</span>(nbdist_vals)) {</span>
+<span id="cb21-45"><a href="#cb21-45" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">"Probando nbdist ="</span>, nbdist_vals[i], <span class="st">"...</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb21-46"><a href="#cb21-46" aria-hidden="true" tabindex="-1"></a>  WW <span class="ot">&lt;-</span> <span class="fu">crear_W</span>(puntos, nbdist_vals[i])</span>
+<span id="cb21-47"><a href="#cb21-47" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb21-48"><a href="#cb21-48" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(<span class="st">"a"</span>)</span>
+<span id="cb21-49"><a href="#cb21-49" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb21-50"><a href="#cb21-50" aria-hidden="true" tabindex="-1"></a>  SARAR <span class="ot">&lt;-</span> <span class="fu">spreg</span>(logprice<span class="sc">~</span>accommodates<span class="sc">+</span>minimum_nights<span class="sc">+</span>availability_365<span class="sc">+</span></span>
+<span id="cb21-51"><a href="#cb21-51" aria-hidden="true" tabindex="-1"></a>                  number_of_reviews<span class="sc">+</span>license<span class="sc">+</span>Entire, <span class="at">data=</span>pisos,</span>
+<span id="cb21-52"><a href="#cb21-52" aria-hidden="true" tabindex="-1"></a>               <span class="at">listw =</span> WW, <span class="at">model=</span><span class="st">"sarar"</span>, <span class="at">het=</span><span class="cn">TRUE</span>)</span>
+<span id="cb21-53"><a href="#cb21-53" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb21-54"><a href="#cb21-54" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(<span class="st">"b"</span>)</span>
+<span id="cb21-55"><a href="#cb21-55" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb21-56"><a href="#cb21-56" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb21-57"><a href="#cb21-57" aria-hidden="true" tabindex="-1"></a>  resultados<span class="sc">$</span>R2_adj[i] <span class="ot">&lt;-</span> <span class="fu">R2_ajustado</span>(SARAR)</span>
+<span id="cb21-58"><a href="#cb21-58" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb21-59"><a href="#cb21-59" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(<span class="st">"c"</span>)</span>
+<span id="cb21-60"><a href="#cb21-60" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb21-61"><a href="#cb21-61" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gc</span>(); <span class="fu">gc</span>()</span>
+<span id="cb21-62"><a href="#cb21-62" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb21-63"><a href="#cb21-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-64"><a href="#cb21-64" aria-hidden="true" tabindex="-1"></a><span class="co"># Mostrar resultados ordenados</span></span>
+<span id="cb21-65"><a href="#cb21-65" aria-hidden="true" tabindex="-1"></a>resultados_ordenados <span class="ot">&lt;-</span> resultados[<span class="fu">order</span>(<span class="sc">-</span>resultados<span class="sc">$</span>R2_adj), ]</span>
+<span id="cb21-66"><a href="#cb21-66" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(resultados_ordenados)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="cosas-en-el-olvido" class="level1">
+<h1>Cosas en el olvido</h1>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>a<span class="ot">=</span>fastDummies<span class="sc">::</span><span class="fu">dummy_cols</span>(pisos<span class="sc">$</span>room_type)</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>pisos<span class="sc">$</span>Entire<span class="ot">=</span>a[,<span class="dv">2</span>]</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>OLS<span class="ot">=</span><span class="fu">lm</span>(logprice<span class="sc">~</span>accommodates<span class="sc">+</span>minimum_nights<span class="sc">+</span>availability_365<span class="sc">+</span></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>        number_of_reviews<span class="sc">+</span>license<span class="sc">+</span>Entire, <span class="at">data=</span>pisos)</span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="fu">dim</span>(pisos)[<span class="dv">1</span>]</span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>puntos<span class="ot">=</span><span class="fu">cbind</span>(pisos<span class="sc">$</span>longitude,pisos<span class="sc">$</span>latitude)</span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>dis <span class="ot">&lt;-</span> <span class="fu">dist</span>(puntos,<span class="at">upper=</span><span class="cn">TRUE</span>)</span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>D<span class="ot">=</span><span class="fu">as.matrix</span>(dis)</span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a><span class="do">#### Acá hay un problema por valores cercanos</span></span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a><span class="co">#W &lt;- 1 / D^2</span></span>
+<span id="cb22-19"><a href="#cb22-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-20"><a href="#cb22-20" aria-hidden="true" tabindex="-1"></a><span class="do">#### Vamos por </span></span>
+<span id="cb22-21"><a href="#cb22-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-22"><a href="#cb22-22" aria-hidden="true" tabindex="-1"></a>W <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(D<span class="sc">&lt;</span><span class="fl">0.0117</span>, <span class="dv">1</span>, <span class="dv">0</span>)</span>
+<span id="cb22-23"><a href="#cb22-23" aria-hidden="true" tabindex="-1"></a><span class="fu">diag</span>(W)<span class="ot">=</span><span class="dv">0</span></span>
+<span id="cb22-24"><a href="#cb22-24" aria-hidden="true" tabindex="-1"></a>rtot <span class="ot">&lt;-</span> <span class="fu">rowSums</span>(W, <span class="at">na.rm=</span><span class="cn">TRUE</span>)</span>
+<span id="cb22-25"><a href="#cb22-25" aria-hidden="true" tabindex="-1"></a>W <span class="ot">&lt;-</span> W <span class="sc">/</span> rtot <span class="co"># Matriz estandarizada</span></span>
+<span id="cb22-26"><a href="#cb22-26" aria-hidden="true" tabindex="-1"></a>W[<span class="sc">!</span><span class="fu">is.finite</span>(W)] <span class="ot">&lt;-</span> <span class="cn">NA</span></span>
+<span id="cb22-27"><a href="#cb22-27" aria-hidden="true" tabindex="-1"></a>W[<span class="fu">is.na</span>(W)] <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb22-28"><a href="#cb22-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-29"><a href="#cb22-29" aria-hidden="true" tabindex="-1"></a><span class="co">#W &lt;- Matrix(round(W, 3), sparse = TRUE)</span></span>
+<span id="cb22-30"><a href="#cb22-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-31"><a href="#cb22-31" aria-hidden="true" tabindex="-1"></a>W <span class="ot">&lt;-</span> <span class="fu">Matrix</span>(W, <span class="at">sparse =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb22-32"><a href="#cb22-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-33"><a href="#cb22-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-34"><a href="#cb22-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-35"><a href="#cb22-35" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(dis)</span>
+<span id="cb22-36"><a href="#cb22-36" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(D)</span>
+<span id="cb22-37"><a href="#cb22-37" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span>
+<span id="cb22-38"><a href="#cb22-38" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span>
+<span id="cb22-39"><a href="#cb22-39" aria-hidden="true" tabindex="-1"></a>Wdist.mat.tot<span class="ot">=</span>W</span>
+<span id="cb22-40"><a href="#cb22-40" aria-hidden="true" tabindex="-1"></a>Wdist.list.tot<span class="ot">=</span><span class="fu">mat2listw</span>(Wdist.mat.tot, <span class="at">zero.policy =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb22-41"><a href="#cb22-41" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(W)</span>
+<span id="cb22-42"><a href="#cb22-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-43"><a href="#cb22-43" aria-hidden="true" tabindex="-1"></a>SARAR <span class="ot">&lt;-</span> <span class="fu">spreg</span>(logprice<span class="sc">~</span>accommodates<span class="sc">+</span>minimum_nights<span class="sc">+</span>availability_365<span class="sc">+</span></span>
+<span id="cb22-44"><a href="#cb22-44" aria-hidden="true" tabindex="-1"></a>                 number_of_reviews<span class="sc">+</span>license<span class="sc">+</span>Entire, <span class="at">data=</span>pisos,</span>
+<span id="cb22-45"><a href="#cb22-45" aria-hidden="true" tabindex="-1"></a>                 <span class="at">listw =</span> Wdist.list.tot, <span class="at">model=</span><span class="st">"sarar"</span>, <span class="at">het=</span><span class="cn">FALSE</span>)</span>
+<span id="cb22-46"><a href="#cb22-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-47"><a href="#cb22-47" aria-hidden="true" tabindex="-1"></a><span class="do">#### El sarar solo llevaba la matriz W con la distancia a la menos 1</span></span>
+<span id="cb22-48"><a href="#cb22-48" aria-hidden="true" tabindex="-1"></a><span class="do">#### El sara W1 lleva la matriz con W que vale 1 si estas a menos de 0.05 de distancia</span></span>
+<span id="cb22-49"><a href="#cb22-49" aria-hidden="true" tabindex="-1"></a><span class="co">#save(SARAR, file="SARARW1.RData")</span></span>
+<span id="cb22-50"><a href="#cb22-50" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(SARAR)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="modelo-sarar" class="level4">
+<h4 class="anchored" data-anchor-id="modelo-sarar">Modelo SARAR</h4>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>DatosF <span class="ot">&lt;-</span> Datos <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(price)) <span class="sc">%&gt;%</span> </span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(price<span class="sc">&lt;</span><span class="dv">5000</span>, price<span class="sc">&gt;</span><span class="dv">10</span>, </span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>                room_type<span class="sc">%in%</span><span class="fu">c</span>(<span class="st">"Entire home/apt"</span>, <span class="st">"Private room"</span>) ) <span class="sc">%&gt;%</span> </span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(price, latitude, longitude, room_type,</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>                minimum_nights, number_of_reviews, calculated_host_listings_count,</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>                license, availability_365) <span class="sc">%&gt;%</span> </span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">license =</span> <span class="fu">ifelse</span>(<span class="fu">is.na</span>(license),<span class="dv">0</span>,<span class="dv">1</span>),</span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>                <span class="at">priceRank =</span> <span class="fu">cut</span>(price, </span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>                                <span class="at">breaks =</span> <span class="fu">round</span>(<span class="fu">quantile</span>(price, <span class="at">probs=</span><span class="fu">c</span>(<span class="dv">0</span>,<span class="fl">0.2</span>,<span class="fl">0.4</span>,<span class="fl">0.6</span>,<span class="fl">0.8</span>,<span class="dv">1</span>))),</span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>                                <span class="at">include.lowest =</span> <span class="cn">TRUE</span>) ) <span class="sc">%&gt;%</span> </span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">na.exclude</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">sample_n</span>(<span class="dv">1000</span>)</span>
+<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(DatosF<span class="sc">$</span>room_type)</span>
+<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-18"><a href="#cb23-18" aria-hidden="true" tabindex="-1"></a>a<span class="ot">=</span>fastDummies<span class="sc">::</span><span class="fu">dummy_cols</span>(DatosF<span class="sc">$</span>room_type)</span>
+<span id="cb23-19"><a href="#cb23-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-20"><a href="#cb23-20" aria-hidden="true" tabindex="-1"></a>DatosF<span class="sc">$</span>Entire<span class="ot">=</span>a[,<span class="dv">2</span>]</span>
+<span id="cb23-21"><a href="#cb23-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-22"><a href="#cb23-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-23"><a href="#cb23-23" aria-hidden="true" tabindex="-1"></a>OLS<span class="ot">=</span><span class="fu">lm</span>(<span class="fu">log</span>(price)<span class="sc">~</span>minimum_nights<span class="sc">+</span>number_of_reviews<span class="sc">+</span></span>
+<span id="cb23-24"><a href="#cb23-24" aria-hidden="true" tabindex="-1"></a>         calculated_host_listings_count<span class="sc">+</span>license<span class="sc">+</span>availability_365<span class="sc">+</span>Entire,</span>
+<span id="cb23-25"><a href="#cb23-25" aria-hidden="true" tabindex="-1"></a>       <span class="at">data=</span>DatosF)</span>
+<span id="cb23-26"><a href="#cb23-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-27"><a href="#cb23-27" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="fu">dim</span>(DatosF)[<span class="dv">1</span>]</span>
+<span id="cb23-28"><a href="#cb23-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-29"><a href="#cb23-29" aria-hidden="true" tabindex="-1"></a>puntos<span class="ot">=</span><span class="fu">cbind</span>(DatosF<span class="sc">$</span>longitude,DatosF<span class="sc">$</span>latitude)</span>
+<span id="cb23-30"><a href="#cb23-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-31"><a href="#cb23-31" aria-hidden="true" tabindex="-1"></a>dis <span class="ot">&lt;-</span> <span class="fu">dist</span>(puntos,<span class="at">upper=</span><span class="cn">TRUE</span>)</span>
+<span id="cb23-32"><a href="#cb23-32" aria-hidden="true" tabindex="-1"></a>D<span class="ot">=</span><span class="fu">as.matrix</span>(dis)</span>
+<span id="cb23-33"><a href="#cb23-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-34"><a href="#cb23-34" aria-hidden="true" tabindex="-1"></a>W <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">/</span> D<span class="sc">^</span><span class="dv">2</span></span>
+<span id="cb23-35"><a href="#cb23-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-36"><a href="#cb23-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-37"><a href="#cb23-37" aria-hidden="true" tabindex="-1"></a>W[<span class="sc">!</span><span class="fu">is.finite</span>(W)] <span class="ot">&lt;-</span> <span class="cn">NA</span></span>
+<span id="cb23-38"><a href="#cb23-38" aria-hidden="true" tabindex="-1"></a>W[<span class="fu">is.na</span>(W)] <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb23-39"><a href="#cb23-39" aria-hidden="true" tabindex="-1"></a>rtot <span class="ot">&lt;-</span> <span class="fu">rowSums</span>(W, <span class="at">na.rm=</span><span class="cn">TRUE</span>)</span>
+<span id="cb23-40"><a href="#cb23-40" aria-hidden="true" tabindex="-1"></a>Wdist.mat.tot<span class="ot">=</span>W</span>
+<span id="cb23-41"><a href="#cb23-41" aria-hidden="true" tabindex="-1"></a>Wdist.list.tot<span class="ot">=</span><span class="fu">mat2listw</span>(W)</span>
+<span id="cb23-42"><a href="#cb23-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-43"><a href="#cb23-43" aria-hidden="true" tabindex="-1"></a>W <span class="ot">&lt;-</span> W <span class="sc">/</span> rtot <span class="co"># Matriz estandarizada</span></span>
+<span id="cb23-44"><a href="#cb23-44" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(dis)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>SAR<span class="ot">=</span><span class="fu">lagsarlm</span>(<span class="fu">log</span>(price)<span class="sc">~</span>minimum_nights<span class="sc">+</span>number_of_reviews<span class="sc">+</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>               calculated_host_listings_count<span class="sc">+</span>license<span class="sc">+</span>availability_365<span class="sc">+</span>Entire,</span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>             <span class="at">data=</span>DatosF,<span class="at">listw =</span> Wdist.list.tot,<span class="at">zero.policy =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(SAR)</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a>SARAR <span class="ot">&lt;-</span> <span class="fu">spreg</span>(<span class="fu">log</span>(price)<span class="sc">~</span>minimum_nights<span class="sc">+</span>number_of_reviews<span class="sc">+</span></span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a>                 calculated_host_listings_count<span class="sc">+</span>license<span class="sc">+</span>availability_365<span class="sc">+</span>Entire,</span>
+<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a>               <span class="at">data=</span>DatosF,<span class="at">listw =</span> Wdist.list.tot, <span class="at">model=</span><span class="st">"sarar"</span>, <span class="at">het=</span><span class="cn">TRUE</span>)</span>
+<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(SARAR)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>SARAR_2<span class="ot">=</span><span class="fu">sacsarlm</span>(logprice<span class="sc">~</span>accommodates<span class="sc">+</span>minimum_nights<span class="sc">+</span>availability_365<span class="sc">+</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>                 number_of_reviews<span class="sc">+</span>license<span class="sc">+</span>Entire, <span class="at">data=</span>pisos,</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>                 <span class="at">listw =</span> WW, <span class="at">zero.policy =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(SARAR_2)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="sar" class="level3">
+<h3 class="anchored" data-anchor-id="sar">SAR</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>SAR<span class="ot">=</span><span class="fu">lagsarlm</span>(logprice<span class="sc">~</span>accommodates<span class="sc">+</span>minimum_nights<span class="sc">+</span>availability_365<span class="sc">+</span></span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>                 number_of_reviews<span class="sc">+</span>license<span class="sc">+</span>Entire, <span class="at">data=</span>pisos,</span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>                 <span class="at">listw =</span> Wdist.list.tot,<span class="at">zero.policy =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(SAR)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="sem" class="level3">
+<h3 class="anchored" data-anchor-id="sem">SEM</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>SD <span class="ot">=</span> <span class="fu">diag</span>(<span class="fu">diag</span>(SARAR<span class="sc">$</span>var[<span class="dv">8</span><span class="sc">:</span><span class="dv">9</span>, <span class="dv">8</span><span class="sc">:</span><span class="dv">9</span>])<span class="sc">^</span>(<span class="sc">-</span><span class="dv">1</span><span class="sc">/</span><span class="dv">2</span>))</span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>SD<span class="sc">%*%</span>SARAR<span class="sc">$</span>var[<span class="dv">8</span><span class="sc">:</span><span class="dv">9</span>, <span class="dv">8</span><span class="sc">:</span><span class="dv">9</span>]<span class="sc">%*%</span>SD</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>SEM<span class="ot">=</span><span class="fu">errorsarlm</span>(<span class="fu">log</span>(price)<span class="sc">~</span>minimum_nights<span class="sc">+</span>number_of_reviews<span class="sc">+</span></span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>               license<span class="sc">+</span>availability_365<span class="sc">+</span>Entire,</span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>             <span class="at">data=</span>muestra,<span class="at">listw =</span> Wdist.list.tot,<span class="at">zero.policy =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(SEM)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="validación-cruzada" class="level4">
+<h4 class="anchored" data-anchor-id="validación-cruzada">Validación cruzada</h4>
+<pre><code>minimos_filas &lt;- apply(matriz_AIC, 1, min)
+print(minimos_filas)
+print(min(minimos_filas))
+
+#Matriz con 10 repeticiones, con muestras de 200 pisos
+#write.csv(matriz_AIC, "matriz_AIC.csv", row.names = FALSE, col.names = FALSE)
+
+#Matriz con 50 repeticiones, con muestras de 500 pisos
+#write.csv(matriz_AIC, "matriz_AIC2.csv", row.names = FALSE, col.names = FALSE)
+matriz_AIC2 = read_csv("matriz_AIC2.csv")
+
+for(i in 1:50){
+  plot(1:n_columnas/100, matriz_AIC2[i,],type = "o", col = "red", pch = 16, xlab = "X", ylab = "Y", main = "Gráfico con puntos y líneas")
+}</code></pre>
+</section>
+</section>
+</section>
 
 </main>
 <!-- /main column -->
